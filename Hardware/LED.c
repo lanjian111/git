@@ -1,0 +1,129 @@
+#include "stm32f10x.h"                  // Device header
+#include "LED.h"
+#include "delay.h"
+#include "flag.h"
+/**
+  * 函    数：LED初始化
+  * 参    数：无
+  * 返 回 值：无
+  */
+void LED_Init(void)
+{
+	/*开启时钟*/
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);		//开启GPIOA的时钟
+	
+	/*GPIO初始化*/
+	GPIO_InitTypeDef GPIO_InitStructure;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+	GPIO_InitStructure.GPIO_Pin = LED1_PIN | LED2_PIN;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_Init(GPIOA, &GPIO_InitStructure);						//将PA4和PA5引脚初始化为推挽输出
+	
+	/*设置GPIO初始化后的默认电平*/
+	GPIO_SetBits(GPIOA, LED1_PIN | LED2_PIN);				//设置PA4和PA5引脚为高电平，默认关闭LED
+}
+
+/**
+  * 函    数：LED1开启
+  * 参    数：无
+  * 返 回 值：无
+  */
+void LED1_ON(void)
+{
+	GPIO_ResetBits(LED1_PORT, LED1_PIN);		//设置PA4引脚为低电平
+}
+
+/**
+  * 函    数：LED1关闭
+  * 参    数：无
+  * 返 回 值：无
+  */
+void LED1_OFF(void)
+{
+	GPIO_SetBits(LED1_PORT, LED1_PIN);		//设置PA4引脚为高电平
+}
+
+/**
+  * 函    数：LED1状态翻转
+  * 参    数：无
+  * 返 回 值：无
+  */
+void LED1_Turn(void)
+{
+	if (GPIO_ReadOutputDataBit(LED1_PORT, LED1_PIN) == 0)		//获取输出寄存器的状态，如果当前引脚输出低电平
+	{
+		GPIO_SetBits(LED1_PORT, LED1_PIN);					//则设置PA4引脚为高电平
+	}
+	else													//否则，即当前引脚输出高电平
+	{
+		GPIO_ResetBits(LED1_PORT, LED1_PIN);					//则设置PA4引脚为低电平
+	}
+}
+
+/**
+  * 函    数：LED2开启
+  * 参    数：无
+  * 返 回 值：无
+  */
+void LED2_ON(void)
+{
+	GPIO_ResetBits(LED2_PORT, LED2_PIN);		//设置PA5引脚为低电平
+}
+
+/**
+  * 函    数：LED2关闭
+  * 参    数：无
+  * 返 回 值：无
+  */
+void LED2_OFF(void)
+{
+	GPIO_SetBits(LED2_PORT, LED2_PIN);		//设置PA5引脚为高电平
+}
+
+/**
+  * 函    数：LED2状态翻转
+  * 参    数：无
+  * 返 回 值：无
+  */
+void LED2_Turn(void)
+{
+	if (GPIO_ReadOutputDataBit(LED2_PORT, LED2_PIN) == 0)		//获取输出寄存器的状态，如果当前引脚输出低电平
+	{                                                  
+		GPIO_SetBits(LED2_PORT, LED2_PIN);               		//则设置PA5引脚为高电平
+	}                                                  
+	else                                               		//否则，即当前引脚输出高电平
+	{                                                  
+		GPIO_ResetBits(LED2_PORT, LED2_PIN);             		//则设置PA5引脚为低电平
+	}
+}
+
+
+void LED_flicker(void)
+{
+  static uint32_t last_ms = 0;
+
+  if (FLAG_DEBUG_MODE)
+  {
+    /* 调试模式: LED2 快闪 200ms */
+    if (delay_expired(last_ms, 200U))
+    {
+      LED1_OFF();                        // LED1 常灭
+      LED2_Turn();                       // LED2 快闪
+      last_ms = delay_millis();
+    }
+  }
+  else
+  {
+    /* 正常模式: LED1 慢闪 1s */
+    if (delay_expired(last_ms, 1000U))
+    {
+      LED2_OFF();                        // LED2 常灭
+      LED1_Turn();                       // LED1 慢闪
+      last_ms = delay_millis();
+    }
+  }
+}
+
+
+
+
