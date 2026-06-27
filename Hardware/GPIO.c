@@ -49,7 +49,7 @@ void Liquid_Level_ADC_Init(void)
     ADC_InitStructure.ADC_NbrOfChannel = 1;
     ADC_Init(LIQUID_LEVEL_ADC, &ADC_InitStructure);
 
-    ADC_Cmd(LIQUID_LEVEL_ADC, ENABLE);
+    ADC_Cmd(LIQUID_LEVEL_ADC, ENABLE);                       // 先使能才能校准
     ADC_ResetCalibration(LIQUID_LEVEL_ADC);
     while (ADC_GetResetCalibrationStatus(LIQUID_LEVEL_ADC) == SET)
     {
@@ -58,6 +58,7 @@ void Liquid_Level_ADC_Init(void)
     while (ADC_GetCalibrationStatus(LIQUID_LEVEL_ADC) == SET)
     {
     }
+    ADC_Cmd(LIQUID_LEVEL_ADC, DISABLE);                      // 校准后先关，由Liquid_Level_Update按需开启
 }
 
 // 采样并更新缓存值(供100ms周期调用, 非阻塞)
@@ -68,22 +69,23 @@ void Liquid_Level_Update(void)
     {
         if (g_liquid_level_started != 0)
         {
-            ADC_SoftwareStartConvCmd(LIQUID_LEVEL_ADC, DISABLE);     // 停止ADC转换
+            ADC_Cmd(LIQUID_LEVEL_ADC, DISABLE);                      // 单次模式无需停转换，直接关ADC省电
             g_liquid_level_started = 0;
         }
         return;
     }
 
-    // 首次进入采样状态时配置通道并启动转换
+    // 首次进入采样状态：使能ADC → 配通道 → 触发首次转换
     if (g_liquid_level_started == 0)
     {
+        ADC_Cmd(LIQUID_LEVEL_ADC, ENABLE);
         ADC_RegularChannelConfig(LIQUID_LEVEL_ADC, LIQUID_LEVEL_ADC_CHANNEL, 1, LIQUID_LEVEL_ADC_SAMPLE_TIME);
         ADC_SoftwareStartConvCmd(LIQUID_LEVEL_ADC, ENABLE);          // 软件触发单次转换
         g_liquid_level_started = 1;
         return;                                                       // 本次不读数据，等下一周期EOC就绪
     }
 
-    // 转换完成则读取结果并立即启动下一次转换
+    // 单次转换完成 → 读取结果 → 立即触发下一次
     if (ADC_GetFlagStatus(LIQUID_LEVEL_ADC, ADC_FLAG_EOC) == SET)
     {
         g_liquid_level_raw = ADC_GetConversionValue(LIQUID_LEVEL_ADC);

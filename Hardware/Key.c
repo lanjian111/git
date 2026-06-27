@@ -34,22 +34,7 @@ uint8_t Key_GetNum(void)
 	static uint8_t key1_last = 1; // 上拉输入，1为松开
 	static uint8_t key1_stable = 1;
 	static uint32_t key1_last_change = 0;
-graph LR
-    subgraph STM32F103RC
-        PA0[PA0 ADC1_CH0<br/>液位传感器]
-        PA4[PA4 LED1]
-        PA5[PA5 LED2]
-        PA6[PA6 循环泵]
-        PA7[PA7 进水电磁阀]
-        PA8[PA8 清洗电磁阀]
-        PA9[PA9 USART1 TX<br/>调试串口]
-        PA10[PA10 USART1 RX]
-        PB1[PB1 按键1]
-        PB10[PB10 USART3 TX<br/>HMI触摸屏]
-        PB11[PB11 USART3 RX]
-        PC4[PC4 循环三通阀]
-        PC6[PC6 出液三通阀]
-    end	static uint32_t key1_press_start = 0;     // 按下开始时刻
+	static uint32_t key1_press_start = 0;     // 按下开始时刻
 	static uint8_t  key1_long_done = 0;       // 长按已触发标志
 
 	static uint8_t key2_last = 1;
