@@ -230,7 +230,16 @@ void Wash_Task(void)                                                 // 每100ms
 		{
 			FLAG_CIRCULATION_PUMP_ENABLE = 1;                            // 置位循环泵流程使能标志
 		}
-		/* 第二段进水总超时保护：从进入STAGE2_FILL开始超过120秒则终止 */
+		/* 30秒未达1000则超时终止 */
+		if (liquid_level_adc <= WASH_LEVEL_PUMP_ON_THRESHOLD
+		    && delay_expired(g_wash_state_start_ms, WASH_FILL_TIMEOUT_MS))
+		{
+			FLAG_WASH_START = 0;
+			wash_debug_send("Stage2 fill timeout (30s not reaching 1000)\r\n");
+			Wash_ResetState();
+			break;
+		}
+		/* 整体进水超时保护：从进入STAGE2_FILL开始超过120秒则终止 */
 		if (delay_expired(g_wash_state_start_ms, WASH_FILL_TOTAL_TIMEOUT_MS))
 		{
 			FLAG_WASH_START = 0;
