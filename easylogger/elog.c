@@ -3,8 +3,8 @@
  * Based on armink/EasyLogger — MIT License
  */
 
-#include <elog.h>
-#include <elog_cfg.h>
+#include "elog.h"
+#include "elog_cfg.h"
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -62,11 +62,15 @@ extern void elog_port_output_unlock(void);
 /*---------------------------------------------------------------------------*/
 size_t elog_strcpy(size_t cur_len, char *dst, const char *src)
 {
-    size_t n = strlen(src);
-    /* use memcpy to avoid strcpy's unsafe behavior */
-    if (dst != NULL && src != NULL) {
-        memcpy(dst, src, n);
+    size_t n;
+
+    /* NULL check first to avoid crash on strlen(NULL) */
+    if (dst == NULL || src == NULL) {
+        return cur_len;
     }
+
+    n = strlen(src);
+    memcpy(dst, src, n);
     return cur_len + n;
 }
 
@@ -88,7 +92,8 @@ static uint8_t elog_get_filter_tag_lvl(const char *tag)
 static void elog_set_filter_tag_lvl_default(void)
 {
     elog.filter.tag_lvl_num = 1;
-    strcpy(elog.filter.tag_lvl[0].tag, "*");
+    strncpy(elog.filter.tag_lvl[0].tag, "*", ELOG_FILTER_TAG_MAX_LEN);
+    elog.filter.tag_lvl[0].tag[ELOG_FILTER_TAG_MAX_LEN] = '\0';
     elog.filter.tag_lvl[0].level = ELOG_LVL_VERBOSE;
 }
 
@@ -262,7 +267,7 @@ void elog_output(uint8_t level, const char *tag, const char *file,
         }
     }
 
-    /* format: ] */
+    /* format: suffix ": " after level+tag */
     if (get_fmt_enabled(level, ELOG_FMT_LVL) || get_fmt_enabled(level, ELOG_FMT_TAG)) {
         log_buf[log_len++] = ':';
         log_buf[log_len++] = ' ';
@@ -323,4 +328,24 @@ void elog_raw(const char *format, ...)
         elog_port_output(log_buf, log_len);
     }
     elog_port_output_unlock();
+}
+
+/*---------------------------------------------------------------------------*/
+/* async output — stub (bare-metal: direct output, no async thread)          */
+/*---------------------------------------------------------------------------*/
+void elog_async_output(void)
+{
+    /* bare-metal: all output is synchronous, nothing to flush */
+}
+
+/*---------------------------------------------------------------------------*/
+/* hexdump — stub (not yet implemented for bare-metal)                       */
+/*---------------------------------------------------------------------------*/
+void elog_hexdump(const char *name, uint8_t width, uint8_t *buf, uint16_t size)
+{
+    (void)name;
+    (void)width;
+    (void)buf;
+    (void)size;
+    /* reserved for future implementation */
 }

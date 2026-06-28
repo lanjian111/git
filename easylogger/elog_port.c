@@ -39,7 +39,7 @@ void elog_port_deinit(void)
 /*---------------------------------------------------------------------------*/
 void elog_port_output(const char *log, size_t size)
 {
-    static char buf[ELOG_LINE_BUF_SIZE + 2];
+    char buf[ELOG_LINE_BUF_SIZE + 2];
 
     if (size >= sizeof(buf))
         size = sizeof(buf) - 1;
@@ -52,16 +52,19 @@ void elog_port_output(const char *log, size_t size)
 }
 
 /*---------------------------------------------------------------------------*/
-/* output lock / unlock (bare-metal: disable/enable global interrupt) */
+/* output lock / unlock                                                       */
+/* Only disable USART1 TX DMA interrupt (DMA1_Channel4) to protect husart1   */
+/* from concurrent access by the TX-complete ISR.                             */
+/* SysTick and all other interrupts keep running — no time drift.             */
 /*---------------------------------------------------------------------------*/
 void elog_port_output_lock(void)
 {
-    __disable_irq();
+    NVIC_DisableIRQ(DMA1_Channel4_IRQn);
 }
 
 void elog_port_output_unlock(void)
 {
-    __enable_irq();
+    NVIC_EnableIRQ(DMA1_Channel4_IRQn);
 }
 
 /*---------------------------------------------------------------------------*/
