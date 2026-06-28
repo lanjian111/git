@@ -8,6 +8,9 @@
 #include "Key.h"                                                  // 接入按键模块
 #include "USARTDMA.h"
 #include "hmi_driver.h"
+#include "elog.h"                                                 // EasyLogger 统一日志接口
+
+#define LOG_TAG                         "main"
 
 
 int main(void)
@@ -19,6 +22,14 @@ int main(void)
     delay_init();         // 初始化延迟函数（1ms节拍）
     USART_DMA_Init(115200); // 初始化USART DMA，波特率115200
     HMI_LinkInit();       // 绑定HMI接收回调与解析链路
+
+    /* 初始化 EasyLogger */
+    elog_init();
+    elog_set_fmt(ELOG_LVL_ERROR,  ELOG_FMT_LVL | ELOG_FMT_TAG | ELOG_FMT_TIME);
+    elog_set_fmt(ELOG_LVL_INFO,   ELOG_FMT_LVL | ELOG_FMT_TAG | ELOG_FMT_TIME);
+    elog_start();
+
+    log_i("System boot, EasyLogger initialized");
 
 
     while (1)

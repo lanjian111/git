@@ -946,36 +946,6 @@ void USART3_DMA_RX_IRQHandler(void)
 
 /* =============== 辅助函数 =============== */
 
-/**
-  * @brief  printf格式化输出
-  * @param  format: 格式字符串
-  * @param  ...: 可变参数
-  * @retval None
-  */
-void USART_DMA_Printf(const char *format, ...)
-{
-    char buffer[128]; // 格式化缓冲区
-    va_list args; // 可变参数列表
-    
-    va_start(args, format); // 开始解析
-    vsnprintf(buffer, sizeof(buffer), format, args); // 格式化
-    va_end(args); // 结束解析
-    
-    USART_DMA_SendString(buffer); // 发送字符串
-}
-
-void USART3_DMA_Printf(const char *format, ...)
-{
-    char buffer[128]; // 格式化缓冲区
-    va_list args; // 可变参数列表
-
-    va_start(args, format); // 开始解析
-    vsnprintf(buffer, sizeof(buffer), format, args); // 格式化
-    va_end(args); // 结束解析
-
-    USART3_DMA_SendString(buffer); // 发送字符串
-}
-
 void UartInit(uint32_t Baudrate)
 {
     USART3_DMA_Init(Baudrate); // 初始化 USART3

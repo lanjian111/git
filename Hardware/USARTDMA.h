@@ -154,8 +154,7 @@ void USART3_DMA_TX_IRQHandler(void); // USART3 TX DMA 中断处理
 void USART3_DMA_RX_IRQHandler(void); // USART3 RX DMA 中断处理
 
 // 辅助函数
-void USART_DMA_Printf(const char *format, ...); // USART1 printf 输出
-void USART3_DMA_Printf(const char *format, ...); // USART3 printf 输出
+// (USART_DMA_Printf / USART3_DMA_Printf 已移除，使用 EasyLogger 替代)
 
 // HMI兼容接口（原hmi_user_uart）
 void UartInit(uint32_t Baudrate); // HMI 初始化

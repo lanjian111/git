@@ -336,7 +336,7 @@
               <MiscControls></MiscControls>
               <Define>USE_STDPERIPH_DRIVER</Define>
               <Undefine></Undefine>
-              <IncludePath>.\Start;.\User;.\Library;.\System;.\Hardware;.\Work</IncludePath>
+              <IncludePath>.\Start;.\User;.\Library;.\System;.\Hardware;.\Work;.\easylogger</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -809,6 +809,31 @@
               <FileName>TEST.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\Work\TEST.h</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>easylogger</GroupName>
+          <Files>
+            <File>
+              <FileName>elog.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\easylogger\elog.c</FilePath>
+            </File>
+            <File>
+              <FileName>elog.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\easylogger\elog.h</FilePath>
+            </File>
+            <File>
+              <FileName>elog_cfg.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\easylogger\elog_cfg.h</FilePath>
+            </File>
+            <File>
+              <FileName>elog_port.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\easylogger\elog_port.c</FilePath>
             </File>
           </Files>
         </Group>
