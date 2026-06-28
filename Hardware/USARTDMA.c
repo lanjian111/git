@@ -48,9 +48,6 @@ void USART_DMA_Init(uint32_t baudrate)
     USART_DMA_USART_Init(baudrate); // 初始化 USART
     USART_DMA_DMA_Init(); // 初始化 DMA
     USART_DMA_NVIC_Init(); // 初始化 NVIC
-
-    // 同时初始化USART3(PB10/PB11) DMA，用于HMI
-    USART3_DMA_Init(baudrate); // 初始化 USART3 DMA
 }
 
 /**
@@ -948,20 +945,20 @@ void USART3_DMA_RX_IRQHandler(void)
 
 void UartInit(uint32_t Baudrate)
 {
-    USART3_DMA_Init(Baudrate); // 初始化 USART3
+    USART_DMA_Init(Baudrate); // 初始化 USART1（屏幕通信）
 }
 
 void SendChar(unsigned char t)
 {
     uint32_t timeout = 1000000UL;                                    // 超时计数器
     uint8_t temp = (uint8_t)t; // 转换为 uint8_t
-    USART3_DMA_SendData(&temp, 1); // 发送字节
-    while (USART3_DMA_IsTxBusy())
+    USART_DMA_SendData(&temp, 1); // 发送字节（USART1 → 屏幕）
+    while (USART_DMA_IsTxBusy())
     {
         if (--timeout == 0U)                                          // 超时保护
         {
-            DMA_Cmd(USART3_DMA_TX_CHANNEL, DISABLE);
-            husart3.tx_busy = false;
+            DMA_Cmd(USART_DMA_TX_CHANNEL, DISABLE);
+            husart1.tx_busy = false;
             break;
         }
     }

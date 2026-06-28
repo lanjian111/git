@@ -1,7 +1,7 @@
 /*
- * EasyLogger port layer for bare-metal STM32F103RC + USART1 DMA
+ * EasyLogger port layer for bare-metal STM32F103RC + USART3 DMA
  *
- * Connects EasyLogger's output to USART_DMA_SendString().
+ * Connects EasyLogger's output to USART3_DMA_SendString().
  * Time source: system tick counter (ms).
  */
 
@@ -11,8 +11,8 @@
 #include <string.h>
 #include "stm32f10x.h"
 
-/* external: USART1 DMA send (defined in USARTDMA.c) */
-extern void USART_DMA_SendString(const char *str);
+/* external: USART3 DMA send (defined in USARTDMA.c) */
+extern void USART3_DMA_SendString(const char *str);
 
 /* external: system millisecond counter (defined in delay.c) */
 extern uint32_t delay_millis(void);
@@ -22,7 +22,7 @@ extern uint32_t delay_millis(void);
 /*---------------------------------------------------------------------------*/
 ElogErrCode elog_port_init(void)
 {
-    /* USART1 DMA is already initialized in main() before elog_init() */
+    /* USART3 DMA is already initialized in main() before elog_init() */
     return ELOG_NO_ERR;
 }
 
@@ -47,24 +47,24 @@ void elog_port_output(const char *log, size_t size)
     memcpy(buf, log, size);
     buf[size] = '\0';
 
-    /* send via USART1 DMA (non-blocking async) */
-    USART_DMA_SendString(buf);
+    /* send via USART3 DMA (non-blocking async) */
+    USART3_DMA_SendString(buf);
 }
 
 /*---------------------------------------------------------------------------*/
 /* output lock / unlock                                                       */
-/* Only disable USART1 TX DMA interrupt (DMA1_Channel4) to protect husart1   */
+/* Only disable USART3 TX DMA interrupt (DMA1_Channel2) to protect husart3   */
 /* from concurrent access by the TX-complete ISR.                             */
 /* SysTick and all other interrupts keep running — no time drift.             */
 /*---------------------------------------------------------------------------*/
 void elog_port_output_lock(void)
 {
-    NVIC_DisableIRQ(DMA1_Channel4_IRQn);
+    NVIC_DisableIRQ(DMA1_Channel2_IRQn);
 }
 
 void elog_port_output_unlock(void)
 {
-    NVIC_EnableIRQ(DMA1_Channel4_IRQn);
+    NVIC_EnableIRQ(DMA1_Channel2_IRQn);
 }
 
 /*---------------------------------------------------------------------------*/

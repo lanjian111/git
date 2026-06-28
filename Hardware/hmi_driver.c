@@ -11,6 +11,11 @@
 #include "hmi_driver.h"
 #include "cmd_queue.h"
 #include "cmd_process.h"
+#include "flag.h"
+#include "elog.h"
+#include <stdio.h>
+
+#define LOG_TAG     "hmi"
 
 #define TX_8(P1) SEND_DATA((P1)&0xFF)                    //发送单个字节
 #define TX_8N(P,N) SendNU8((uint8 *)P,N)                 //发送N个字节
@@ -18,7 +23,7 @@
 #define TX_16N(P,N) SendNU16((uint16 *)P,N)              //发送N个16位整数
 #define TX_32(P1) TX_16((P1)>>16);TX_16((P1)&0xFFFF)     //发送32位整数
 
-// 由USART3接收回调置位，提示主循环有新串口数据待解析。
+// 由USART1接收回调置位，提示主循环有新串口数据待解析。
 static volatile uint8 g_hmi_rx_pending = 0;
 
 static void HMI_RxCallback(uint8_t *data, uint16_t length)
@@ -34,10 +39,10 @@ void HMI_LinkInit(void)
 {
     // 启动前先清空软件队列和DMA接收缓存，避免上电残留数据干扰协议状态机。
     queue_reset();
-    USART3_DMA_ClearRxBuffer();
+    USART_DMA_ClearRxBuffer();
 
-    // 将USART3接收事件绑定到HMI回调。
-    USART3_DMA_SetRxCallback(HMI_RxCallback);
+    // 将USART1接收事件绑定到HMI回调。
+    USART_DMA_SetRxCallback(HMI_RxCallback);
 
     // 清除待处理标志，保证初始化完成后从干净状态进入主循环。
     g_hmi_rx_pending = 0;
@@ -49,7 +54,7 @@ void HMI_LinkTask(void)
     qsize cmd_len = 0;
 
     // 没有回调触发且DMA当前无可读数据时，立即返回降低CPU占用。
-    if ((g_hmi_rx_pending == 0U) && (USART3_DMA_Available() == 0U))
+    if ((g_hmi_rx_pending == 0U) && (USART_DMA_Available() == 0U))
     {
         return;
     }
@@ -59,15 +64,26 @@ void HMI_LinkTask(void)
 
     // 将DMA环形缓冲区内的数据逐字节转存到协议队列。
     // 这样做可以复用厂家队列的帧头/帧尾状态机，减少协议层改动。
-    while (USART3_DMA_Available() > 0U)
+    while (USART_DMA_Available() > 0U)
     {
-        queue_push((qdata)USART3_DMA_ReadByte());
+        queue_push((qdata)USART_DMA_ReadByte());
     }
 
     // 从队列中持续提取完整帧，并交给消息分发层处理。
     // 使用while而不是if，确保一个周期内可清空多帧积压。
     while ((cmd_len = queue_find_cmd(cmd_buf, CMD_MAX_SIZE)) > 0U)
     {
+        // 调试模式（长按Key1 2秒切换）下，将屏幕发来的完整帧以hex格式输出
+        if (FLAG_DEBUG_MODE)
+        {
+            char hex_buf[CMD_MAX_SIZE * 3 + 20];
+            int pos = snprintf(hex_buf, sizeof(hex_buf), "HMI_RX[%u]:", cmd_len);
+            for (qsize i = 0; i < cmd_len && pos < (int)sizeof(hex_buf) - 4; i++)
+            {
+                pos += snprintf(hex_buf + pos, sizeof(hex_buf) - pos, " %02X", cmd_buf[i]);
+            }
+            log_d("%s", hex_buf);
+        }
         ProcessMessage((PCTRL_MSG)cmd_buf, cmd_len);
     }
 }
