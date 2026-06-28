@@ -104,11 +104,11 @@ void circulation_pump_Set(uint8_t state)
 {
     if(state) {
         GPIO_SetBits(GPIOA, circulation_pump_PIN);
-        if (FLAG_DEBUG_MODE) { USART3_DMA_SendString("CIRC_PUMP_ON\r\n"); }
+        if (FLAG_DEBUG_MODE) { USART_DMA_SendString("CIRC_PUMP_ON\r\n"); }
         FLAG_CIRCULATION_PUMP = 1;
     } else {
         GPIO_ResetBits(GPIOA, circulation_pump_PIN);
-        if (FLAG_DEBUG_MODE) { USART3_DMA_SendString("CIRC_PUMP_OFF\r\n"); }
+        if (FLAG_DEBUG_MODE) { USART_DMA_SendString("CIRC_PUMP_OFF\r\n"); }
         FLAG_CIRCULATION_PUMP = 0;
     }
 }
@@ -118,11 +118,11 @@ void water_inlet_solenoid_valve_Set(uint8_t state)
 {
     if(state) {
         GPIO_SetBits(GPIOA, water_inlet_solenoid_valve_PIN);
-        if (FLAG_DEBUG_MODE) { USART3_DMA_SendString("WATER_INLET_ON\r\n"); }
+        if (FLAG_DEBUG_MODE) { USART_DMA_SendString("WATER_INLET_ON\r\n"); }
         FLAG_WATER_INLET_VALVE = 1;
     } else {
         GPIO_ResetBits(GPIOA, water_inlet_solenoid_valve_PIN);
-        if (FLAG_DEBUG_MODE) { USART3_DMA_SendString("WATER_INLET_OFF\r\n"); }
+        if (FLAG_DEBUG_MODE) { USART_DMA_SendString("WATER_INLET_OFF\r\n"); }
         FLAG_WATER_INLET_VALVE = 0;
     }
 }
@@ -132,11 +132,11 @@ void cleaning_solenoid_valve_Set(uint8_t state)
 {
     if(state) {
         GPIO_SetBits(GPIOA, cleaning_solenoid_valve_PIN);
-        if (FLAG_DEBUG_MODE) { USART3_DMA_SendString("CLEANING_ON\r\n"); }
+        if (FLAG_DEBUG_MODE) { USART_DMA_SendString("CLEANING_ON\r\n"); }
         FLAG_CLEANING_VALVE = 1;
     } else {
         GPIO_ResetBits(GPIOA, cleaning_solenoid_valve_PIN);
-        if (FLAG_DEBUG_MODE) { USART3_DMA_SendString("CLEANING_OFF\r\n"); }
+        if (FLAG_DEBUG_MODE) { USART_DMA_SendString("CLEANING_OFF\r\n"); }
         FLAG_CLEANING_VALVE = 0;
     }
 }
@@ -146,11 +146,11 @@ void Circulation_Three_Way_Valve_Set(uint8_t state)
 {
     if(state) {
         GPIO_SetBits(GPIOC, Circulation_Three_Way_Valve_PIN);
-        if (FLAG_DEBUG_MODE) { USART3_DMA_SendString("CIRC_3WAY_ON\r\n"); }
+        if (FLAG_DEBUG_MODE) { USART_DMA_SendString("CIRC_3WAY_ON\r\n"); }
         FLAG_CIRCULATION_THREE_WAY = 1;
     } else {
         GPIO_ResetBits(GPIOC, Circulation_Three_Way_Valve_PIN);
-        if (FLAG_DEBUG_MODE) { USART3_DMA_SendString("CIRC_3WAY_OFF\r\n"); }
+        if (FLAG_DEBUG_MODE) { USART_DMA_SendString("CIRC_3WAY_OFF\r\n"); }
         FLAG_CIRCULATION_THREE_WAY = 0;
     }
 }
@@ -160,11 +160,11 @@ void Liquid_Outlet_Three_Way_Valve_Set(uint8_t state)
 {
     if(state) {
         GPIO_SetBits(GPIOC, Liquid_Outlet_Three_Way_Valve_PIN);
-        if (FLAG_DEBUG_MODE) { USART3_DMA_SendString("LIQ_OUT_3WAY_ON\r\n"); }
+        if (FLAG_DEBUG_MODE) { USART_DMA_SendString("LIQ_OUT_3WAY_ON\r\n"); }
         FLAG_LIQUID_OUTLET_THREE_WAY = 1;
     } else {
         GPIO_ResetBits(GPIOC, Liquid_Outlet_Three_Way_Valve_PIN);
-        if (FLAG_DEBUG_MODE) { USART3_DMA_SendString("LIQ_OUT_3WAY_OFF\r\n"); }
+        if (FLAG_DEBUG_MODE) { USART_DMA_SendString("LIQ_OUT_3WAY_OFF\r\n"); }
         FLAG_LIQUID_OUTLET_THREE_WAY = 0;
     }
 }

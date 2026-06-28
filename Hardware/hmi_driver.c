@@ -23,7 +23,7 @@
 #define TX_16N(P,N) SendNU16((uint16 *)P,N)              //发送N个16位整数
 #define TX_32(P1) TX_16((P1)>>16);TX_16((P1)&0xFFFF)     //发送32位整数
 
-// 由USART1接收回调置位，提示主循环有新串口数据待解析。
+// 由USART2接收回调置位，提示主循环有新串口数据待解析。
 static volatile uint8 g_hmi_rx_pending = 0;
 
 static void HMI_RxCallback(uint8_t *data, uint16_t length)
@@ -39,10 +39,10 @@ void HMI_LinkInit(void)
 {
     // 启动前先清空软件队列和DMA接收缓存，避免上电残留数据干扰协议状态机。
     queue_reset();
-    USART_DMA_ClearRxBuffer();
+    USART2_DMA_ClearRxBuffer();
 
-    // 将USART1接收事件绑定到HMI回调。
-    USART_DMA_SetRxCallback(HMI_RxCallback);
+    // 将USART2接收事件绑定到HMI回调。
+    USART2_DMA_SetRxCallback(HMI_RxCallback);
 
     // 清除待处理标志，保证初始化完成后从干净状态进入主循环。
     g_hmi_rx_pending = 0;
@@ -54,7 +54,7 @@ void HMI_LinkTask(void)
     qsize cmd_len = 0;
 
     // 没有回调触发且DMA当前无可读数据时，立即返回降低CPU占用。
-    if ((g_hmi_rx_pending == 0U) && (USART_DMA_Available() == 0U))
+    if ((g_hmi_rx_pending == 0U) && (USART2_DMA_Available() == 0U))
     {
         return;
     }
@@ -64,9 +64,9 @@ void HMI_LinkTask(void)
 
     // 将DMA环形缓冲区内的数据逐字节转存到协议队列。
     // 这样做可以复用厂家队列的帧头/帧尾状态机，减少协议层改动。
-    while (USART_DMA_Available() > 0U)
+    while (USART2_DMA_Available() > 0U)
     {
-        queue_push((qdata)USART_DMA_ReadByte());
+        queue_push((qdata)USART2_DMA_ReadByte());
     }
 
     // 从队列中持续提取完整帧，并交给消息分发层处理。

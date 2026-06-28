@@ -20,9 +20,9 @@ int main(void)
     GPIO_Init_ALL();      // 初始化所有GPIO
     Key_Init();           // 初始化按键（PB1/PB11）
     delay_init();         // 初始化延迟函数（1ms节拍）
-    USART_DMA_Init(115200);  // USART1(PA9/PA10)：屏幕通信
-    USART3_DMA_Init(115200); // USART3(PB10/PB11)：EasyLogger日志输出
-    HMI_LinkInit();       // 绑定USART1接收回调与解析链路
+    USART_DMA_Init(115200);  // USART1(PA9/PA10)：EasyLogger日志输出
+    USART2_DMA_Init(115200); // USART2(PA2/PA3)：HMI串口屏通信
+    HMI_LinkInit();       // 绑定USART2接收回调与解析链路
 
     /* 初始化 EasyLogger */
     elog_init();
