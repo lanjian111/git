@@ -193,12 +193,14 @@ void DMA1_Channel5_IRQHandler(void)
     USART_DMA_RX_IRQHandler();
 }
 
-// SysTick中断服务函数，每100ms进入一次
+// SysTick中断服务函数，每1ms进入一次，每100ms置位FLAG_100MS
 void SysTick_Handler(void)
 {
-  uint32_t now = delay_tick_inc();
-  if ((now % 100U) == 0U)
-  {
-    FLAG_100MS = 1;
-  }
+    static uint8_t tick_cnt = 0;
+    delay_tick_inc();
+    if (++tick_cnt >= 100U)
+    {
+        tick_cnt = 0;
+        FLAG_100MS = 1;
+    }
 }
