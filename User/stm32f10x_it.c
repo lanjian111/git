@@ -162,17 +162,17 @@ void PendSV_Handler(void)
 
 /******************* (C) COPYRIGHT 2011 STMicroelectronics *****END OF FILE****/
 /**
-  * @brief  DMA1 Channel7中断处理（USART2 TX — 屏幕）
+  * @brief  DMA1 Channel2中断处理（USART3 TX — 屏幕 PB10）
   */
-void DMA1_Channel7_IRQHandler(void)
+void DMA1_Channel2_IRQHandler(void)
 {
     USART2_DMA_TX_IRQHandler();
 }
 
 /**
-  * @brief  DMA1 Channel6中断处理（USART2 RX — 屏幕）
+  * @brief  DMA1 Channel3中断处理（USART3 RX — 屏幕 PB11）
   */
-void DMA1_Channel6_IRQHandler(void)
+void DMA1_Channel3_IRQHandler(void)
 {
     USART2_DMA_RX_IRQHandler();
 }

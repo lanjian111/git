@@ -23,7 +23,7 @@
 #define TX_16N(P,N) SendNU16((uint16 *)P,N)              //发送N个16位整数
 #define TX_32(P1) TX_16((P1)>>16);TX_16((P1)&0xFFFF)     //发送32位整数
 
-// 由USART2接收回调置位，提示主循环有新串口数据待解析。
+// 由USART2(USART3外设)接收回调置位，提示主循环有新串口数据待解析。
 static volatile uint8 g_hmi_rx_pending = 0;
 
 static void HMI_RxCallback(uint8_t *data, uint16_t length)
@@ -41,7 +41,7 @@ void HMI_LinkInit(void)
     queue_reset();
     USART2_DMA_ClearRxBuffer();
 
-    // 将USART2接收事件绑定到HMI回调。
+    // 将USART2(USART3)接收事件绑定到HMI回调。
     USART2_DMA_SetRxCallback(HMI_RxCallback);
 
     // 清除待处理标志，保证初始化完成后从干净状态进入主循环。

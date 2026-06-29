@@ -14,7 +14,7 @@ volatile uint8_t FLAG_WASH_START = 0;                  // 清洗流程启动标志
 volatile uint8_t FLAG_CIRCULATION_PUMP_ENABLE = 0;     // 清洗流程内循环泵使能标志
 volatile uint8_t FLAG_LIQUID_LEVEL_SAMPLE = 0;         //液位传感器采样使能标志
 volatile uint8_t FLAG_100MS = 0;                       // 100ms时间标志
-volatile uint8_t FLAG_DEBUG_MODE = 0;                  // 调试模式标志 (0=正常, 1=调试)
+volatile uint8_t FLAG_DEBUG_MODE = 1;                  // 调试模式标志 (0=正常, 1=调试，默认开启)
 
 void FLAG_100MS_Execute(void)
 {

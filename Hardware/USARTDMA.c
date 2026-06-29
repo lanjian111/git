@@ -72,7 +72,7 @@ void USART_DMA_DeInit(void)
 }
 
 /**
-    * @brief  初始化USART2 DMA（屏幕通信）
+    * @brief  初始化USART2 DMA（屏幕通信，USART3 + PB10/PB11）
     * @param  baudrate: 波特率
     * @retval None
     */
@@ -90,12 +90,12 @@ void USART2_DMA_Init(uint32_t baudrate)
 
         // 使能时钟
         RCC_APB2PeriphClockCmd(USART2_DMA_GPIO_CLK, ENABLE); // GPIO 时钟
-        RCC_APB1PeriphClockCmd(USART2_DMA_USART_CLK, ENABLE); // USART2 时钟
+        RCC_APB1PeriphClockCmd(USART2_DMA_USART_CLK, ENABLE); // USART3 时钟
         RCC_AHBPeriphClockCmd(USART_DMA_DMA_CLK, ENABLE); // DMA 时钟
 
         // 初始化各外设
         USART2_DMA_GPIO_Init(); // 初始化 GPIO
-        USART2_DMA_USART_Init(baudrate); // 初始化 USART2
+        USART2_DMA_USART_Init(baudrate); // 初始化 USART3
         USART2_DMA_DMA_Init(); // 初始化 DMA
         USART2_DMA_NVIC_Init(); // 初始化 NVIC
     }
@@ -111,7 +111,7 @@ void USART2_DMA_DeInit(void)
     DMA_Cmd(USART2_DMA_RX_CHANNEL, DISABLE); // 关闭 RX DMA
 
         // 禁用USART
-        USART_Cmd(USART2_DMA_USARTx, DISABLE); // 关闭 USART2
+        USART_Cmd(USART2_DMA_USARTx, DISABLE); // 关闭 USART3
 
         // 禁用中断
         NVIC_DisableIRQ(USART2_DMA_TX_IRQn); // 关闭 TX 中断
@@ -144,21 +144,20 @@ static void USART_DMA_GPIO_Init(void)
 }
 
 /**
-    * @brief  初始化USART2 GPIO（PA2/PA3：屏幕）
+    * @brief  初始化USART2 GPIO（PB10/PB11：屏幕，使用USART3外设）
     * @retval None
     */
 static void USART2_DMA_GPIO_Init(void)
 {
     GPIO_InitTypeDef GPIO_InitStructure; // GPIO 配置结构体
 
-        // 配置TX引脚（PA2）
+        // 配置TX引脚（PB10）
         GPIO_InitStructure.GPIO_Pin = USART2_DMA_TX_PIN; // TX 引脚
         GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP; // 复用推挽
         GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz; // 速度配置
         GPIO_Init(USART2_DMA_GPIOx, &GPIO_InitStructure); // 初始化 TX 引脚
 
-        // 配置RX引脚（PA3）
-        GPIO_InitStructure.GPIO_Pin = USART2_DMA_RX_PIN; // RX 引脚
+        // 配置RX引脚（PB11）
         GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING; // 浮空输入
         GPIO_Init(USART2_DMA_GPIOx, &GPIO_InitStructure); // 初始化 RX 引脚
     }
@@ -190,13 +189,13 @@ static void USART_DMA_USART_Init(uint32_t baudrate)
 }
 
 /**
-    * @brief  初始化USART2（屏幕）
+    * @brief  初始化USART2 (USART3外设，屏幕)
     * @param  baudrate: 波特率
     * @retval None
     */
 static void USART2_DMA_USART_Init(uint32_t baudrate)
 {
-    USART_InitTypeDef USART_InitStructure; // USART2 配置结构体
+    USART_InitTypeDef USART_InitStructure; // USART3 配置结构体
 
         USART_InitStructure.USART_BaudRate = baudrate; // 波特率
         USART_InitStructure.USART_WordLength = USART_WordLength_8b; // 8 位数据
@@ -205,14 +204,14 @@ static void USART2_DMA_USART_Init(uint32_t baudrate)
         USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None; // 无硬件流控
         USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx; // 收发使能
 
-        USART_Init(USART2_DMA_USARTx, &USART_InitStructure); // 初始化 USART2
+        USART_Init(USART2_DMA_USARTx, &USART_InitStructure); // 初始化 USART3
 
         // 使能USART DMA请求
         USART_DMACmd(USART2_DMA_USARTx, USART_DMAReq_Tx, ENABLE); // 使能 TX DMA
         USART_DMACmd(USART2_DMA_USARTx, USART_DMAReq_Rx, ENABLE); // 使能 RX DMA
 
         // 使能USART
-        USART_Cmd(USART2_DMA_USARTx, ENABLE); // 使能 USART2
+        USART_Cmd(USART2_DMA_USARTx, ENABLE); // 使能 USART3
     }
 
 /**

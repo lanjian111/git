@@ -23,11 +23,11 @@ extern "C" { // C 语言链接
 #define USART_DMA_TX_PIN             GPIO_Pin_9 // USART1 TX 引脚
 #define USART_DMA_RX_PIN             GPIO_Pin_10 // USART1 RX 引脚
 
-// USART2 (PA2/PA3) — HMI串口屏通信
-#define USART2_DMA_USARTx            USART2 // USART2 实例
-#define USART2_DMA_GPIOx             GPIOA // USART2 GPIO 端口
-#define USART2_DMA_TX_PIN            GPIO_Pin_2 // USART2 TX 引脚
-#define USART2_DMA_RX_PIN            GPIO_Pin_3 // USART2 RX 引脚
+// USART2 (PB10/PB11) — HMI串口屏通信 (使用USART3外设)
+#define USART2_DMA_USARTx            USART3 // USART3 实例
+#define USART2_DMA_GPIOx             GPIOB // USART3 GPIO 端口
+#define USART2_DMA_TX_PIN            GPIO_Pin_10 // USART3 TX 引脚 (PB10)
+#define USART2_DMA_RX_PIN            GPIO_Pin_11 // USART3 RX 引脚 (PB11)
 
 // DMA配置
 #define USART_DMA_TX_CHANNEL         DMA1_Channel4 // USART1 TX DMA 通道
@@ -37,30 +37,30 @@ extern "C" { // C 语言链接
 #define USART_DMA_TX_HT_FLAG         DMA1_FLAG_HT4 // USART1 TX 半传标志
 #define USART_DMA_RX_HT_FLAG         DMA1_FLAG_HT5 // USART1 RX 半传标志
 
-// USART2 DMA配置
-#define USART2_DMA_TX_CHANNEL        DMA1_Channel7 // USART2 TX DMA 通道
-#define USART2_DMA_RX_CHANNEL        DMA1_Channel6 // USART2 RX DMA 通道
-#define USART2_DMA_TX_TC_FLAG        DMA1_FLAG_TC7 // USART2 TX 完成标志
-#define USART2_DMA_RX_TC_FLAG        DMA1_FLAG_TC6 // USART2 RX 完成标志
-#define USART2_DMA_TX_HT_FLAG        DMA1_FLAG_HT7 // USART2 TX 半传标志
-#define USART2_DMA_RX_HT_FLAG        DMA1_FLAG_HT6 // USART2 RX 半传标志
+// USART2 (USART3外设) DMA配置
+#define USART2_DMA_TX_CHANNEL        DMA1_Channel2 // USART3 TX DMA 通道
+#define USART2_DMA_RX_CHANNEL        DMA1_Channel3 // USART3 RX DMA 通道
+#define USART2_DMA_TX_TC_FLAG        DMA1_FLAG_TC2 // USART3 TX 完成标志
+#define USART2_DMA_RX_TC_FLAG        DMA1_FLAG_TC3 // USART3 RX 完成标志
+#define USART2_DMA_TX_HT_FLAG        DMA1_FLAG_HT2 // USART3 TX 半传标志
+#define USART2_DMA_RX_HT_FLAG        DMA1_FLAG_HT3 // USART3 RX 半传标志
 
 // 中断配置
 #define USART_DMA_TX_IRQn            DMA1_Channel4_IRQn // USART1 TX DMA 中断号
 #define USART_DMA_RX_IRQn            DMA1_Channel5_IRQn // USART1 RX DMA 中断号
 
-// USART2 DMA中断配置
-#define USART2_DMA_TX_IRQn           DMA1_Channel7_IRQn // USART2 TX DMA 中断号
-#define USART2_DMA_RX_IRQn           DMA1_Channel6_IRQn // USART2 RX DMA 中断号
+// USART2 DMA中断配置 (使用USART3外设)
+#define USART2_DMA_TX_IRQn           DMA1_Channel2_IRQn // USART3 TX DMA 中断号
+#define USART2_DMA_RX_IRQn           DMA1_Channel3_IRQn // USART3 RX DMA 中断号
 
 // 时钟配置
 #define USART_DMA_GPIO_CLK           RCC_APB2Periph_GPIOA // USART1 GPIO 时钟
 #define USART_DMA_USART_CLK          RCC_APB2Periph_USART1 // USART1 时钟
 #define USART_DMA_DMA_CLK            RCC_AHBPeriph_DMA1 // DMA1 时钟
 
-// USART2 时钟配置
-#define USART2_DMA_GPIO_CLK          RCC_APB2Periph_GPIOA // USART2 GPIO 时钟
-#define USART2_DMA_USART_CLK         RCC_APB1Periph_USART2 // USART2 时钟
+// USART2 时钟配置 (使用USART3外设)
+#define USART2_DMA_GPIO_CLK          RCC_APB2Periph_GPIOB // USART3 GPIO 时钟 (PB10/PB11)
+#define USART2_DMA_USART_CLK         RCC_APB1Periph_USART3 // USART3 时钟
 
 /* =============== 类型定义 =============== */
 

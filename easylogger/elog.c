@@ -29,6 +29,14 @@
 #error "Please define ELOG_NEWLINE_SIGN in elog_cfg.h"
 #endif
 
+/* ANSI color escape sequences for terminal output */
+#define ANSI_COLOR_RESET   "\033[0m"
+#define ANSI_COLOR_RED     "\033[31m"
+#define ANSI_COLOR_YELLOW  "\033[33m"
+#define ANSI_COLOR_GREEN   "\033[32m"
+#define ANSI_COLOR_CYAN    "\033[36m"
+#define ANSI_COLOR_WHITE   "\033[37m"
+
 /* internal structures */
 typedef struct {
     uint8_t level;
@@ -110,6 +118,19 @@ static const char *elog_level_str(uint8_t level)
     case ELOG_LVL_DEBUG:   return "D";
     case ELOG_LVL_VERBOSE: return "V";
     default:               return "?";
+    }
+}
+
+static const char *elog_color_str(uint8_t level)
+{
+    switch (level) {
+    case ELOG_LVL_ASSERT:  return ANSI_COLOR_RED;
+    case ELOG_LVL_ERROR:   return ANSI_COLOR_RED;
+    case ELOG_LVL_WARN:    return ANSI_COLOR_YELLOW;
+    case ELOG_LVL_INFO:    return ANSI_COLOR_GREEN;
+    case ELOG_LVL_DEBUG:   return ANSI_COLOR_CYAN;
+    case ELOG_LVL_VERBOSE: return ANSI_COLOR_WHITE;
+    default:               return "";
     }
 }
 
@@ -250,6 +271,12 @@ void elog_output(uint8_t level, const char *tag, const char *file,
     if (elog.filter.tag[0] != '\0' && !strstr(tag, elog.filter.tag))
         return;
 
+    /* ANSI color prefix based on log level */
+    {
+        const char *color = elog_color_str(level);
+        log_len = elog_strcpy(log_len, &log_buf[log_len], color);
+    }
+
     /* format: [level] */
     if (get_fmt_enabled(level, ELOG_FMT_LVL)) {
         log_buf[log_len++] = '[';
@@ -295,11 +322,15 @@ void elog_output(uint8_t level, const char *tag, const char *file,
         log_len = strlen(log_buf);
     }
 
-    /* append newline */
+    /* append newline — insert ANSI reset before newline, then newline */
     {
         const char *nl = ELOG_NEWLINE_SIGN;
         size_t nl_len = strlen(nl);
-        if (log_len + nl_len < sizeof(log_buf)) {
+        const char *reset = ANSI_COLOR_RESET;
+        size_t reset_len = strlen(reset);
+        if (log_len + reset_len + nl_len < sizeof(log_buf)) {
+            memcpy(&log_buf[log_len], reset, reset_len);
+            log_len += reset_len;
             memcpy(&log_buf[log_len], nl, nl_len);
             log_len += nl_len;
         }

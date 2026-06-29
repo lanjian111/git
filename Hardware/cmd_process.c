@@ -66,6 +66,10 @@ void ProcessMessage(PCTRL_MSG msg, uint16 size)            // 处理从串口接
     // param_len表示可变参数区字节数，用于后续每类消息的长度校验。
     param_len = (uint16)(size - HMI_FRAME_FIXED_LEN);      // 为什么要这么写：固定头尾去掉后，剩下的才是可变参数长度
 
+    // 屏幕发送的screen_id和control_id为大端序，STM32为小端，在入口处统一做字节序修正
+    msg->screen_id  = PTR2U16((uint8 *)&msg->screen_id);
+    msg->control_id = PTR2U16((uint8 *)&msg->control_id);
+
     /*
      * 兼容说明：MSG_GET_CURRENT_SCREEN（画面ID变化通知） 与 NOTIFY_TOUCH_PRESS（触摸按下通知） 常量都为0x01。
      * 为避免switch中出现重复case，先按“参数长度”对画面通知做前置特判：
@@ -109,10 +113,10 @@ void ProcessMessage(PCTRL_MSG msg, uint16 size)            // 处理从串口接
         switch (msg->control_type)                         // 为什么要这么写：控件消息再按控件类型二级分发
         {
         case kCtrlButton:
-            // 按钮状态：param[0]，0=弹起，1=按下。
-            if (param_len >= 1U)                           // 为什么要这么写：按钮状态至少要1字节
+            // 按钮状态：param[1]，0=弹起，1=按下（大彩屏按钮上报格式：param[0]=触摸状态, param[1]=按钮状态）
+            if (param_len >= 2U)                           // 为什么要这么写：按钮状态需要2字节(param[0]+param[1])
             {
-                NotifyButton(msg->screen_id, msg->control_id, msg->param[0]); // 为什么要这么写：把screen/control/state完整透传业务层
+                NotifyButton(msg->screen_id, msg->control_id, msg->param[1]); // 为什么要这么写：param[1]才是按钮真实状态
             }
             break;                                          // 为什么要这么写：当前控件类型已处理完毕
 
