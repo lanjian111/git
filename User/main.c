@@ -9,6 +9,7 @@
 #include "USARTDMA.h"
 #include "hmi_driver.h"
 #include "elog.h"                                                 // EasyLogger 统一日志接口
+#include "eeprom_cat24c256.h"                                     // CAT24C256 EEPROM 驱动
 
 #define LOG_TAG                         "main"
 
@@ -20,6 +21,7 @@ int main(void)
     GPIO_Init_ALL();      // 初始化所有GPIO
     Key_Init();           // 初始化按键（PC2/PC3）
     delay_init();         // 初始化延迟函数（1ms节拍）
+    EEPROM_Init();        // 初始化 CAT24C256 EEPROM (PB8/PB9)
     USART_DMA_Init(115200);  // USART1(PA9/PA10)：EasyLogger日志输出
     USART2_DMA_Init(115200); // USART3(PB10/PB11)：HMI串口屏通信
     HMI_LinkInit();       // 绑定USART2接收回调与解析链路

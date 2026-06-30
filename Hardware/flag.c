@@ -3,6 +3,7 @@
 #include "TEST.h"
 #include "GPIO.h"
 #include "wash.h"
+#include "eeprom_cat24c256.h"
 
 // 状态标志定义
 volatile uint8_t FLAG_CIRCULATION_PUMP = 0;            //循环泵状态标志
@@ -24,6 +25,7 @@ void FLAG_100MS_Execute(void)
         TEST_Function();
         Liquid_Level_Update();
         Wash_Task();                                    // 每100ms推进一次清洗状态机
+        EEPROM_Task();                                  // 每100ms推进一次EEPROM写入状态机
         FLAG_100MS = 0;
     }
     

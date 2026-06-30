@@ -780,6 +780,26 @@
               <FileType>1</FileType>
               <FilePath>.\Hardware\cmd_process.c</FilePath>
             </File>
+            <File>
+              <FileName>soft_i2c.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Hardware\soft_i2c.h</FilePath>
+            </File>
+            <File>
+              <FileName>soft_i2c.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Hardware\soft_i2c.c</FilePath>
+            </File>
+            <File>
+              <FileName>eeprom_cat24c256.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Hardware\eeprom_cat24c256.h</FilePath>
+            </File>
+            <File>
+              <FileName>eeprom_cat24c256.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Hardware\eeprom_cat24c256.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
