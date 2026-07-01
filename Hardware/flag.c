@@ -3,6 +3,7 @@
 #include "TEST.h"
 #include "GPIO.h"
 #include "wash.h"
+#include "coffemake.h"
 #include "eeprom_cat24c256.h"
 
 // 状态标志定义
@@ -16,6 +17,9 @@ volatile uint8_t FLAG_CIRCULATION_PUMP_ENABLE = 0;     // 清洗流程内循环泵使能标
 volatile uint8_t FLAG_LIQUID_LEVEL_SAMPLE = 0;         //液位传感器采样使能标志
 volatile uint8_t FLAG_100MS = 0;                       // 100ms时间标志
 volatile uint8_t FLAG_DEBUG_MODE = 1;                  // 调试模式标志 (0=正常, 1=调试，默认开启)
+volatile uint8_t FLAG_COFFEE_START = 0;                // 萃取流程启动标志
+volatile uint8_t FLAG_DRAIN_WASTE = 0;                 // 排废液流程启动标志
+volatile uint8_t FLAG_DRAIN_BREW = 0;                  // 排萃取液流程启动标志
 
 void FLAG_100MS_Execute(void)
 {
@@ -25,6 +29,9 @@ void FLAG_100MS_Execute(void)
         TEST_Function();
         Liquid_Level_Update();
         Wash_Task();                                    // 每100ms推进一次清洗状态机
+        Coffee_Task();                                  // 每100ms推进一次萃取状态机
+        Coffee_DrainWaste_Task();                       // 每100ms推进一次排废液状态机
+        Coffee_DrainBrew_Task();                        // 每100ms推进一次排萃取液状态机
         EEPROM_Task();                                  // 每100ms推进一次EEPROM写入状态机
         FLAG_100MS = 0;
     }

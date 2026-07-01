@@ -13,6 +13,9 @@ extern volatile uint8_t FLAG_CIRCULATION_PUMP_ENABLE;     // ÇåÏ´Á÷³ÌÄÚÑ­»·±ÃÊ¹Ä
 extern volatile uint8_t FLAG_LIQUID_LEVEL_SAMPLE;         //ÒºÎ»´«¸ĞÆ÷²ÉÑùÊ¹ÄÜ±êÖ¾
 extern volatile uint8_t FLAG_100MS;                       // 100msÊ±¼ä±êÖ¾
 extern volatile uint8_t FLAG_DEBUG_MODE;                 // µ÷ÊÔÄ£Ê½±êÖ¾
+extern volatile uint8_t FLAG_COFFEE_START;               // İÍÈ¡Á÷³ÌÆô¶¯±êÖ¾
+extern volatile uint8_t FLAG_DRAIN_WASTE;                // ÅÅ·ÏÒºÁ÷³ÌÆô¶¯±êÖ¾
+extern volatile uint8_t FLAG_DRAIN_BREW;                 // ÅÅİÍÈ¡ÒºÁ÷³ÌÆô¶¯±êÖ¾
 
 
 void FLAG_100MS_Execute(void);

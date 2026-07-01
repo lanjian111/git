@@ -4,6 +4,7 @@
 #include "GPIO.h"
 #include "flag.h"                                                   // 引入流程标志位定义
 #include "wash.h"                                                   // 引入清洗流程接口声明
+#include "coffemake.h"                                              // 引入排水函数声明
 #include "elog.h"                                                   // EasyLogger 统一日志接口
 
 #define LOG_TAG                         "wash"
@@ -190,52 +191,30 @@ void Wash_Task(void)                                                 // 每100ms
 	case WASH_STATE_STAGE1_START_PUMP_DELAY:                          // 第一段开循环三通后的等待状态
 		if (delay_expired(g_wash_state_start_ms, WASH_CIRC_TO_PUMP_DELAY_MS)) // 非阻塞判断12秒是否到时
 		{
-			FLAG_CIRCULATION_PUMP_ENABLE = 1;                            // 重新置位循环泵使能标志
-			wash_set_pump(1);                                            // 开启循环泵进行排液循环
-			g_wash_state_start_ms = delay_millis();                      // 记录排液开始时间，用于排液超时保护
-			wash_change_state(WASH_STATE_STAGE1_DRAIN, "WASH_STATE_STAGE1_DRAIN"); // 进入第一段排液状态
+			/* 排水交给 Coffee_DrainWaste_Task，清洗侧不再自己开泵 */
+			FLAG_CIRCULATION_PUMP_ENABLE = 0;
+			wash_set_all_closed();                                       // 清洗侧先关阀泵，排水任务会自己重新开
+			FLAG_DRAIN_WASTE = 1;                                        // 触发排废液任务
+			g_wash_state_start_ms = delay_millis();                      // 记录排水等待开始时间，用于兜底超时
+			wash_change_state(WASH_STATE_STAGE1_LOW_LEVEL_HOLD, "WASH_STATE_STAGE1_LOW_LEVEL_HOLD (wait drain)");
 		}
 		break;                                                          // 本周期结束
 
-	case WASH_STATE_STAGE1_DRAIN:                                     // 第一段排液状态
-	{
-		static uint8_t drain1_low_cnt = 0;                               // 液位低于阈值连续计数
-		wash_set_pump(FLAG_CIRCULATION_PUMP_ENABLE);                   // 保持循环泵运行排液
-		if (liquid_level_adc < WASH_LEVEL_LOW_THRESHOLD)               // 液位降到100以下
+	case WASH_STATE_STAGE1_LOW_LEVEL_HOLD:                            // 等待排废液完成
+		/* 排废液任务完成后会清零 FLAG_DRAIN_WASTE，此处轮询等待 */
+		if (FLAG_DRAIN_WASTE == 0)
 		{
-			if (++drain1_low_cnt >= WASH_LEVEL_DEBOUNCE_COUNT)            // 连续3次确认
-			{
-				drain1_low_cnt = 0;                                        // 复位计数器
-				g_wash_state_start_ms = delay_millis();                    // 记录低液位达到时刻
-				wash_change_state(WASH_STATE_STAGE1_LOW_LEVEL_HOLD, "WASH_STATE_STAGE1_LOW_LEVEL_HOLD");
-			}
+			g_wash_state_start_ms = delay_millis();
+			wash_change_state(WASH_STATE_STAGE1_REFILL_DELAY, "WASH_STATE_STAGE1_REFILL_DELAY");
 		}
-		else
+		else if (delay_expired(g_wash_state_start_ms, 90000UL))         // 兜底：90s未完成则强制终止
 		{
-			drain1_low_cnt = 0;                                           // 不满足条件时复位
-		}
-		/* 排液超时保护：60秒未排空则终止清洗 */
-		if (delay_expired(g_wash_state_start_ms, WASH_DRAIN_TIMEOUT_MS))
-		{
-			drain1_low_cnt = 0;
+			log_e("Stage1 drain wait timeout (90s), abort wash");
+			FLAG_DRAIN_WASTE = 0;                                        // 强制清零，让排水任务也复位
 			FLAG_WASH_START = 0;
-			log_e("Stage1 drain timeout (60s), abort wash");
 			Wash_ResetState();
 		}
 		break;
-	}
-
-	case WASH_STATE_STAGE1_LOW_LEVEL_HOLD:                            // 第一段低液位保持状态
-		if (delay_expired(g_wash_state_start_ms, WASH_LOW_LEVEL_HOLD_MS)) // 非阻塞判断2秒是否到时
-		{
-			FLAG_CIRCULATION_PUMP_ENABLE = 0;                            // 清除循环泵使能标志
-			wash_set_pump(0);                                            // 关闭循环泵
-			wash_set_circ_valve(0);                                      // 关闭循环三通阀
-			wash_set_outlet_valve(0);                                    // 关闭出液三通阀
-			g_wash_state_start_ms = delay_millis();                      // 记录第一段结束后的等待起点
-			wash_change_state(WASH_STATE_STAGE1_REFILL_DELAY, "WASH_STATE_STAGE1_REFILL_DELAY"); // 进入第二段前等待12秒
-		}
-		break;                                                          // 本周期结束
 
 	case WASH_STATE_STAGE1_REFILL_DELAY:                              // 第一段结束后的等待状态
 		if (delay_expired(g_wash_state_start_ms, WASH_REFILL_DELAY_MS)) // 非阻塞判断12秒是否到时
@@ -306,52 +285,35 @@ void Wash_Task(void)                                                 // 每100ms
 	case WASH_STATE_STAGE2_START_PUMP_DELAY:                          // 第二段开循环三通后的等待状态
 		if (delay_expired(g_wash_state_start_ms, WASH_CIRC_TO_PUMP_DELAY_MS)) // 非阻塞判断12秒是否到时
 		{
-			FLAG_CIRCULATION_PUMP_ENABLE = 1;                            // 重新置位循环泵使能标志
-			wash_set_pump(1);                                            // 开启循环泵进行排液循环
-			g_wash_state_start_ms = delay_millis();                      // 记录排液开始时间，用于排液超时保护
-			wash_change_state(WASH_STATE_STAGE2_DRAIN, "WASH_STATE_STAGE2_DRAIN"); // 进入第二段排液状态
+			FLAG_CIRCULATION_PUMP_ENABLE = 0;                            // 清洗侧不再自己开泵，交给排水任务
+			wash_set_all_closed();                                       // 清洗侧先关阀泵
+			FLAG_DRAIN_WASTE = 1;                                        // 触发排废液任务
+			g_wash_state_start_ms = delay_millis();
+			wash_change_state(WASH_STATE_STAGE2_DRAIN, "WASH_STATE_STAGE2_DRAIN (wait drain waste)");
 		}
-		break;                                                          // 本周期结束
+		break;
 
-	case WASH_STATE_STAGE2_DRAIN:                                     // 第二段排液状态
-	{
-		static uint8_t drain2_low_cnt = 0;                               // 液位低于阈值连续计数
-		wash_set_pump(FLAG_CIRCULATION_PUMP_ENABLE);                   // 保持循环泵运行排液
-		if (liquid_level_adc < WASH_LEVEL_LOW_THRESHOLD)               // 液位降到100以下
+	case WASH_STATE_STAGE2_DRAIN:                                     // 第二段排液状态 → 等待排废液完成
+		if (FLAG_DRAIN_WASTE == 0)
 		{
-			if (++drain2_low_cnt >= WASH_LEVEL_DEBOUNCE_COUNT)            // 连续3次确认
-			{
-				drain2_low_cnt = 0;                                        // 复位计数器
-				g_wash_state_start_ms = delay_millis();                    // 记录低液位达到时刻
-				wash_change_state(WASH_STATE_STAGE2_LOW_LEVEL_HOLD, "WASH_STATE_STAGE2_LOW_LEVEL_HOLD");
-			}
+			g_wash_state_start_ms = delay_millis();
+			wash_change_state(WASH_STATE_STAGE2_LOW_LEVEL_HOLD, "WASH_STATE_STAGE2_LOW_LEVEL_HOLD");
 		}
-		else
+		else if (delay_expired(g_wash_state_start_ms, 90000UL))         // 兜底：90s未完成则强制终止
 		{
-			drain2_low_cnt = 0;                                           // 不满足条件时复位
-		}
-		/* 排液超时保护：60秒未排空则终止清洗 */
-		if (delay_expired(g_wash_state_start_ms, WASH_DRAIN_TIMEOUT_MS))
-		{
-			drain2_low_cnt = 0;
+			log_e("Stage2 drain wait timeout (90s), abort wash");
+			FLAG_DRAIN_WASTE = 0;                                        // 强制清零，让排水任务也复位
 			FLAG_WASH_START = 0;
-			log_e("Stage2 drain timeout (60s), abort wash");
 			Wash_ResetState();
 		}
 		break;
-	}
 
-	case WASH_STATE_STAGE2_LOW_LEVEL_HOLD:                            // 第二段低液位保持状态
-		if (delay_expired(g_wash_state_start_ms, WASH_LOW_LEVEL_HOLD_MS)) // 非阻塞判断2秒是否到时
+	case WASH_STATE_STAGE2_LOW_LEVEL_HOLD:                            // 第二段排液完成后的等待
+		if (delay_expired(g_wash_state_start_ms, WASH_REFILL_DELAY_MS)) // 等待12秒
 		{
-			FLAG_CIRCULATION_PUMP_ENABLE = 0;                            // 清除循环泵使能标志
-			wash_set_pump(0);                                            // 关闭循环泵
-			wash_set_circ_valve(0);                                      // 关闭循环三通阀
-			wash_set_outlet_valve(0);                                    // 关闭出液三通阀
-			g_wash_state_start_ms = delay_millis();                      // 记录第二段结束后的等待起点
-			wash_change_state(WASH_STATE_STAGE2_FINISH_DELAY, "WASH_STATE_STAGE2_FINISH_DELAY"); // 进入最终结束等待
+			wash_change_state(WASH_STATE_STAGE2_FINISH_DELAY, "WASH_STATE_STAGE2_FINISH_DELAY");
 		}
-		break;                                                          // 本周期结束
+		break;
 
 	case WASH_STATE_STAGE2_FINISH_DELAY:                              // 第二段完成后的结束等待状态
 		if (delay_expired(g_wash_state_start_ms, WASH_REFILL_DELAY_MS)) // 非阻塞判断12秒是否到时
