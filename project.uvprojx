@@ -816,11 +816,6 @@
               <FilePath>.\Work\wash.h</FilePath>
             </File>
             <File>
-              <FileName>coffemake.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\Work\coffemake.c</FilePath>
-            </File>
-            <File>
               <FileName>TEST.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\Work\TEST.c</FilePath>
@@ -829,6 +824,16 @@
               <FileName>TEST.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\Work\TEST.h</FilePath>
+            </File>
+            <File>
+              <FileName>coffemake.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Work\coffemake.c</FilePath>
+            </File>
+            <File>
+              <FileName>coffemake.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Work\coffemake.h</FilePath>
             </File>
           </Files>
         </Group>
