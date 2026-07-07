@@ -5,5 +5,7 @@ void Coffee_Task(void);                                               // İÍÈ¡Á÷³
 void Coffee_DrainWaste_Task(void);                                    // ÅÅ·ÏÒºÁ÷³Ì100msÈÎÎñÈë¿Ú
 void Coffee_DrainBrew_Task(void);                                     // ÅÅİÍÈ¡ÒºÁ÷³Ì100msÈÎÎñÈë¿Ú
 void Coffee_ResetState(void);                                         // İÍÈ¡Á÷³Ì¸´Î»½Ó¿Ú
+void Coffee_SetParam(uint16_t control_id, uint8_t *str);              // İÍÈ¡Ò³ÃæÎÄ±¾²ÎÊı£ºÒºÁ¿/Ê±¼ä
+void Coffee_SetDrainMode(uint8_t item);                               // İÍÈ¡Ò³ÃæÅÅË®Ä£Ê½Ñ¡Ôñ£º0=×Ô¶¯, 1=ÊÖ¶¯
 
 #endif
