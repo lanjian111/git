@@ -5,49 +5,44 @@
 #include "delay.h"
 #include "LED.h"
 #include "GPIO.h"
-#include "Key.h"                                                  // 接入按键模块
+#include "Key.h"
 #include "USARTDMA.h"
 #include "hmi_driver.h"
-#include "elog.h"                                                 // EasyLogger 统一日志接口
-#include "eeprom_cat24c256.h"                                     // CAT24C256 EEPROM 驱动
+#include "elog.h"
+#include "eeprom_cat24c256.h"
+#include "rtc_storage.h"
+#include "rtc_mcu.h"
+#include "cmd_process.h"
 
-#define LOG_TAG                         "main"
+#define LOG_TAG             "main"
 
 
 int main(void)
 {
-    NVIC_Configuration(); // 配置中断优先级分组
-    LED_Init();           // 初始化LED
-    GPIO_Init_ALL();      // 初始化所有GPIO
-    Key_Init();           // 初始化按键（PC2/PC3）
-    delay_init();         // 初始化延迟函数（1ms节拍）
-    EEPROM_Init();        // 初始化 CAT24C256 EEPROM (PB8/PB9)
-    USART_DMA_Init(115200);  // USART1(PA9/PA10)：EasyLogger日志输出
-    USART2_DMA_Init(115200); // USART3(PB10/PB11)：HMI串口屏通信
-    HMI_LinkInit();       // 绑定USART2接收回调与解析链路
+    NVIC_Configuration();
+    LED_Init();
+    GPIO_Init_ALL();
+    Key_Init();
+    delay_init();
+    EEPROM_Init();
+    USART_DMA_Init(115200);
+    USART2_DMA_Init(115200);
+    HMI_LinkInit();
+    USART2_GPIO_Repair();
 
-    /* 初始化 EasyLogger */
     elog_init();
     elog_set_fmt(ELOG_LVL_ERROR,  ELOG_FMT_LVL | ELOG_FMT_TAG | ELOG_FMT_TIME);
     elog_set_fmt(ELOG_LVL_INFO,   ELOG_FMT_LVL | ELOG_FMT_TAG | ELOG_FMT_TIME);
     elog_start();
+    log_i("System boot");
 
-    log_i("System boot, EasyLogger initialized");
-
+    RTC_MCU_Init();
+    RTC_BootRestore();
 
     while (1)
     {
-        HMI_LinkTask();       // 高频轮询：搬运串口数据、拼完整帧并分发消息
-
-        // /* 按键处理：长按 Key1(PC2) 2秒切换调试模式 — 已禁用，默认进入调试模式 */
-        // {
-        //     uint8_t keys = Key_GetNum();
-        //     if (keys & KEY1_LONG_FLAG)
-        //     {
-        //         FLAG_DEBUG_MODE = !FLAG_DEBUG_MODE;               // 翻转调试模式
-        //     }
-        // }
-
+        HMI_LinkTask();
+        if (FLAG_1S) { FLAG_1S = 0; RTC_RefreshIfMinuteChanged(); }
         FLAG_100MS_Execute();
     }
 }

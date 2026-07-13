@@ -16,6 +16,9 @@ extern volatile uint8_t FLAG_DEBUG_MODE;                 // 调试模式标志
 extern volatile uint8_t FLAG_COFFEE_START;               // 萃取流程启动标志
 extern volatile uint8_t FLAG_DRAIN_WASTE;                // 排废液流程启动标志
 extern volatile uint8_t FLAG_DRAIN_BREW;                 // 排萃取液流程启动标志
+extern volatile uint8_t FLAG_1S;                         // 1秒时间标志 (用于RTC刷新)
+
+void FLAG_100MS_Execute(void);
 
 
 void FLAG_100MS_Execute(void);

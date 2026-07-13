@@ -179,4 +179,7 @@ void NotifyWriteFlash(uint8 status);
 */
 void NotifyReadRTC(uint8 year,uint8 month,uint8 week,uint8 day,uint8 hour,uint8 minute,uint8 second);
 
+void RTC_RefreshIfMinuteChanged(void);
+void HMI_SendTextFrame(uint16_t screen_id, uint16_t control_id, const char *str);
+
 #endif

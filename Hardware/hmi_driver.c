@@ -1000,6 +1000,7 @@ void SetButtonValue(uint16 screen_id,uint16 control_id,uchar state)
 */
 void SetTextValue(uint16 screen_id,uint16 control_id,uchar *str)
 {
+    log_d("SetTextValue: scr=%u ctrl=%u str='%s'", screen_id, control_id, str);
     BEGIN_CMD();
     TX_8(0xB1);
     TX_8(0x10);
@@ -2050,6 +2051,26 @@ void ReadRTC(void)
 {
     BEGIN_CMD();
     TX_8(0x82);
+    END_CMD();
+}
+
+/*!
+*  \brief     设置屏幕RTC时间 (指令0x83)
+*  \param    rtc_data 8字节时间数组 (二进制格式, 大端序):
+*            [0~1] 年(uint16), [2]月, [3]日, [4]时, [5]分, [6]秒, [7]星期
+*  \note     与屏幕ReadRTC返回的BCD格式不同, 本函数发送的是二进制值
+*  \note     大彩协议0x83: EE 83 YY_hi YY_lo MM DD HH MM_ SS WK FF FC FF FF
+*            其中星期: 0x00=周日, 0x01~0x06=周一~周六
+*/
+void WriteRTC(uint8 *rtc_data)
+{
+    uint8 i;
+    BEGIN_CMD();
+    TX_8(0x83);
+    for (i = 0; i < 8; i++)
+    {
+        TX_8(rtc_data[i]);
+    }
     END_CMD();
 }
 

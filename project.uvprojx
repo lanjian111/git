@@ -670,6 +670,16 @@
               <FileType>5</FileType>
               <FilePath>.\System\sys.h</FilePath>
             </File>
+            <File>
+              <FileName>rtc_mcu.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\System\rtc_mcu.c</FilePath>
+            </File>
+            <File>
+              <FileName>rtc_mcu.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\System\rtc_mcu.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -799,6 +809,16 @@
               <FileName>eeprom_cat24c256.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\Hardware\eeprom_cat24c256.c</FilePath>
+            </File>
+            <File>
+              <FileName>rtc_storage.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Hardware\rtc_storage.c</FilePath>
+            </File>
+            <File>
+              <FileName>rtc_storage.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Hardware\rtc_storage.h</FilePath>
             </File>
           </Files>
         </Group>

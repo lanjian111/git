@@ -943,6 +943,17 @@ void Record_Insert(uint16 screen_id,uint16 control_id,uint16 index,uint8 *record
 void Record_Select(uint16 screen_id,uint16 control_id,uint16 index);
 
 /*! 
+ *  \brief     读取屏幕RTC时间
+ */
+void ReadRTC(void);
+
+/*! 
+ *  \brief     设置屏幕RTC时间
+ *  \param    rtc_data 8字节二进制时间数组 (年16位大端,月,日,时,分,秒,星期)
+ */
+void WriteRTC(uint8 *rtc_data);
+
+/*! 
  *  \brief     初始化HMI接收链路（回调+队列）
  */
 void HMI_LinkInit(void);

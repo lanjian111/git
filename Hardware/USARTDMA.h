@@ -157,8 +157,9 @@ void USART2_DMA_RX_IRQHandler(void); // USART2 RX DMA 中断处理
 // (USART_DMA_Printf / USART2_DMA_Printf 已移除，使用 EasyLogger 替代)
 
 // HMI兼容接口（原hmi_user_uart）
-void UartInit(uint32_t Baudrate); // HMI 初始化
-void SendChar(unsigned char t); // HMI 发送字符
+void UartInit(uint32_t Baudrate);
+void SendChar(unsigned char t);
+void USART2_GPIO_Repair(void);         /* GPIOB 修复, 在 USART2_DMA_Init 之后调用 */
 
 /* =============== 宏函数定义 =============== */
 
