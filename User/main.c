@@ -44,5 +44,8 @@ int main(void)
         HMI_LinkTask();
         if (FLAG_1S) { FLAG_1S = 0; RTC_RefreshIfMinuteChanged(); }
         FLAG_100MS_Execute();
+        HMI_LinkTask();
     }
 }
+
+

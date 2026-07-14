@@ -4,6 +4,7 @@
 #include "rtc_storage.h"
 #include "rtc_mcu.h"
 #include "elog.h"
+#include "delay.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -141,12 +142,6 @@ void ProcessMessage(PCTRL_MSG msg, uint16 size)            // 处理从串口接
 {
     uint16 param_len = 0;
 
-    /* 排查用: 所有≥9字节的帧打印入口 */
-    if (msg != 0 && size >= 9U)
-    {
-        log_i("PM: size=%u ctrl_msg=%02X", size, msg->ctrl_msg);
-    }
-
     /*
      * 基础健壮性检查：
      * 1) 空指针直接返回
@@ -212,8 +207,6 @@ void ProcessMessage(PCTRL_MSG msg, uint16 size)            // 处理从串口接
 
     case NOTIFY_CONTROL:                                    // 控件消息通知
     case MSG_GET_DATA:                                      // 控件数据通知
-        log_i("ctrl_msg=%02X ctrl_type=%02X scr=%u ctrl=%u plen=%u",
-              msg->ctrl_msg, msg->control_type, msg->screen_id, msg->control_id, param_len);
         switch (msg->control_type)                         // 为什么要这么写：控件消息再按控件类型二级分发
         {
         case kCtrlButton:
@@ -384,8 +377,6 @@ void NotifyTouchXY(uint8 press, uint16 x, uint16 y)         // 触摸坐标事�
 
 void NotifyButton(uint16 screen_id, uint16 control_id, uint8 state)
 {
-    log_i("NotifyButton: screen=%u ctrl=%u state=%u", screen_id, control_id, state);
-
     /* 时间设置页 —— 确定按钮: 直接用缓存值 */
     if (screen_id == SCREEN_ID_RTC_SET && control_id == CTRL_ID_RTC_BTN_OK && state == BUTTON_STATE_PRESS)
     {
