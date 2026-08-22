@@ -28,7 +28,6 @@ int main(void)
     USART_DMA_Init(115200);
     USART2_DMA_Init(115200);
     HMI_LinkInit();
-    USART2_GPIO_Repair();
 
     elog_init();
     elog_set_fmt(ELOG_LVL_ERROR,  ELOG_FMT_LVL | ELOG_FMT_TAG | ELOG_FMT_TIME);

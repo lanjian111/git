@@ -158,6 +158,7 @@ static void USART2_DMA_GPIO_Init(void)
         GPIO_Init(USART2_DMA_GPIOx, &GPIO_InitStructure); // 初始化 TX 引脚
 
         // 配置RX引脚（PB11）
+        GPIO_InitStructure.GPIO_Pin = USART2_DMA_RX_PIN; // RX 引脚
         GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING; // 浮空输入
         GPIO_Init(USART2_DMA_GPIOx, &GPIO_InitStructure); // 初始化 RX 引脚
     }
@@ -963,19 +964,4 @@ void SendChar(unsigned char t)
     }
 }
 
-/* GPIOB 修复: SoftI2C 等初始化可能覆盖 PB10/PB11 的 AF_PP 配置 */
-void USART2_GPIO_Repair(void)
-{
-    GPIO_InitTypeDef gpio;
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB | RCC_APB2Periph_AFIO, ENABLE);
-    gpio.GPIO_Pin   = GPIO_Pin_10;
-    gpio.GPIO_Mode  = GPIO_Mode_AF_PP;
-    gpio.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(GPIOB, &gpio);
-    gpio.GPIO_Pin   = GPIO_Pin_11;
-    gpio.GPIO_Mode  = GPIO_Mode_IN_FLOATING;
-    GPIO_Init(GPIOB, &gpio);
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART3, ENABLE);
-    USART_Cmd(USART3, ENABLE);
-    DMA_Cmd(USART2_DMA_RX_CHANNEL, ENABLE);
-}
+
