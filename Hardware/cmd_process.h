@@ -167,19 +167,5 @@ void NotifyReadFlash(uint8 status,uint8 *_data,uint16 length);
 *  \param status 0失败，1成功
 */
 void NotifyWriteFlash(uint8 status);
-/*! 
-*  \brief  读取RTC时间，注意返回的是BCD码
-*  \param year 年（BCD）
-*  \param month 月（BCD）
-*  \param week 星期（BCD）
-*  \param day 日（BCD）
-*  \param hour 时（BCD）
-*  \param minute 分（BCD）
-*  \param second 秒（BCD）
-*/
-void NotifyReadRTC(uint8 year,uint8 month,uint8 week,uint8 day,uint8 hour,uint8 minute,uint8 second);
-
-void RTC_RefreshIfMinuteChanged(void);
-void HMI_SendTextFrame(uint16_t screen_id, uint16_t control_id, const char *str);
 
 #endif

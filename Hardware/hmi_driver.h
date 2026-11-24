@@ -945,7 +945,7 @@ void Record_Select(uint16 screen_id,uint16 control_id,uint16 index);
 /*! 
  *  \brief     读取屏幕RTC时间
  */
-void ReadRTC(void);
+uint8 ReadRTC(void);
 
 /*! 
  *  \brief     设置屏幕RTC时间

@@ -10,9 +10,7 @@
 #include "hmi_driver.h"
 #include "elog.h"
 #include "eeprom_cat24c256.h"
-#include "rtc_storage.h"
-#include "rtc_mcu.h"
-#include "cmd_process.h"
+#include "rtc_screen.h"
 
 #define LOG_TAG             "main"
 
@@ -35,13 +33,10 @@ int main(void)
     elog_start();
     log_i("System boot");
 
-    RTC_MCU_Init();
-    RTC_BootRestore();
-
     while (1)
     {
         HMI_LinkTask();
-        if (FLAG_1S) { FLAG_1S = 0; RTC_RefreshIfMinuteChanged(); }
+        RTC_Screen_Task();
         FLAG_100MS_Execute();
         HMI_LinkTask();
     }

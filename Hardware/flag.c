@@ -20,12 +20,9 @@ volatile uint8_t FLAG_DEBUG_MODE = 1;                  // 调试模式标志 (0=正常, 
 volatile uint8_t FLAG_COFFEE_START = 0;                // 萃取流程启动标志
 volatile uint8_t FLAG_DRAIN_WASTE = 0;                 // 排废液流程启动标志
 volatile uint8_t FLAG_DRAIN_BREW = 0;                  // 排萃取液流程启动标志
-volatile uint8_t FLAG_1S = 0;                          // 1秒时间标志
 
 void FLAG_100MS_Execute(void)
 {
-    static uint8_t tick_100ms = 0;
-
     if (FLAG_100MS == 1)
     {
         LED_flicker();
@@ -36,14 +33,6 @@ void FLAG_100MS_Execute(void)
         Coffee_DrainWaste_Task();
         Coffee_DrainBrew_Task();
         EEPROM_Task();
-
-        /* 每 10 次 (1秒) 置位 FLAG_1S */
-        tick_100ms++;
-        if (tick_100ms >= 10)
-        {
-            tick_100ms = 0;
-            FLAG_1S = 1;
-        }
 
         FLAG_100MS = 0;
     }

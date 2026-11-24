@@ -671,14 +671,14 @@
               <FilePath>.\System\sys.h</FilePath>
             </File>
             <File>
-              <FileName>rtc_mcu.c</FileName>
+              <FileName>rtc_screen.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\System\rtc_mcu.c</FilePath>
+              <FilePath>.\System\rtc_screen.c</FilePath>
             </File>
             <File>
-              <FileName>rtc_mcu.h</FileName>
+              <FileName>rtc_screen.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\System\rtc_mcu.h</FilePath>
+              <FilePath>.\System\rtc_screen.h</FilePath>
             </File>
           </Files>
         </Group>

@@ -59,6 +59,7 @@ uint8_t  RTC_CalcWeek(uint16_t year, uint8_t month, uint8_t day);
 
 /* 校验时间是否合法 (范围 + 日期上限) */
 uint8_t  RTC_IsValid(const RTC_Time_t *t);
+uint8_t  RTC_DaysInMonth(uint16_t year, uint8_t month);
 
 /*==========================================================================
  * EEPROM 存取

@@ -1,0 +1,91 @@
+{
+  "format": "xlsx",
+  "verdict": "pass",
+  "checks": [
+    {
+      "id": "package",
+      "status": "pass"
+    },
+    {
+      "id": "contains",
+      "status": "pass",
+      "text": "0x01"
+    },
+    {
+      "id": "contains",
+      "status": "pass",
+      "text": "AA 55"
+    },
+    {
+      "id": "contains",
+      "status": "pass",
+      "text": "circulation_pump_Set"
+    },
+    {
+      "id": "contains",
+      "status": "pass",
+      "text": "0x81"
+    },
+    {
+      "id": "contains",
+      "status": "pass",
+      "text": "FLAG_WASH_START"
+    },
+    {
+      "id": "count",
+      "status": "pass",
+      "expected": 9,
+      "actual": 9
+    }
+  ],
+  "summary": {
+    "sheets": [
+      {
+        "name": "1-\u534f\u8bae\u603b\u89c8",
+        "cells": 56,
+        "formulas": 0
+      },
+      {
+        "name": "2-\u547d\u4ee4\u603b\u8868",
+        "cells": 50,
+        "formulas": 0
+      },
+      {
+        "name": "3-\u5e27\u683c\u5f0f\u5b57\u6bb5\u8be6\u89e3",
+        "cells": 37,
+        "formulas": 0
+      },
+      {
+        "name": "4-\u5668\u4ef6\u7f16\u53f7\u8868",
+        "cells": 50,
+        "formulas": 0
+      },
+      {
+        "name": "5-\u9600\u4f4d\u56fe\u6620\u5c04",
+        "cells": 80,
+        "formulas": 0
+      },
+      {
+        "name": "6-\u6d41\u7a0b\u6807\u5fd7\u6620\u5c04",
+        "cells": 38,
+        "formulas": 0
+      },
+      {
+        "name": "7-\u6570\u636e\u533a\u8be6\u89e3",
+        "cells": 68,
+        "formulas": 0
+      },
+      {
+        "name": "8-\u5b8c\u6574\u5e27\u5b9e\u4f8b",
+        "cells": 153,
+        "formulas": 0
+      },
+      {
+        "name": "9-\u6269\u5c55\u65b9\u6848",
+        "cells": 33,
+        "formulas": 0
+      }
+    ],
+    "formulas_evaluated": false
+  }
+}

@@ -1,30 +1,14 @@
 #include "cmd_process.h"
 #include "flag.h"
 #include "coffemake.h"
-#include "rtc_storage.h"
-#include "rtc_mcu.h"
+#include "rtc_screen.h"
 #include "elog.h"
-#include "delay.h"
-#include <stdio.h>
-#include <stdlib.h>
+#include <string.h>
 
 #define LOG_TAG     "cmd"
 
 #define SCREEN_ID_WASH                     0x0002U
 #define SCREEN_ID_COFFEE                   0x0004U   /* 萃取页 = 4 (之前错了) */
-#define SCREEN_ID_RTC_SET                  0x000BU   /* 时间设置页面 */
-
-/* 所有页面通用的时间文本控件 ID (显示 "HH:MM") */
-#define CTRL_ID_TIME_TEXT                  0x0009U
-
-/* 时间设置页面 控件ID */
-#define CTRL_ID_RTC_YEAR                   0x0001U
-#define CTRL_ID_RTC_MONTH                  0x0002U
-#define CTRL_ID_RTC_DAY                    0x0003U
-#define CTRL_ID_RTC_HOUR                   0x0004U
-#define CTRL_ID_RTC_MINUTE                 0x0006U
-#define CTRL_ID_RTC_BTN_OK                 0x0007U
-
 #define CTRL_ID_WASH_START                0x0001U
 #define BUTTON_STATE_RELEASE              0x00U
 #define BUTTON_STATE_PRESS                0x01U
@@ -140,16 +124,27 @@ static void HandleCoffeeScreenButton(uint16 control_id, uint8 state)
 
 void ProcessMessage(PCTRL_MSG msg, uint16 size)            // 处理从串口接收的完整消息帧
 {
+    const uint8 *frame = (const uint8 *)msg;
     uint16 param_len = 0;
+    /* Custom notification sent by the screen after a local RTC save. */
+    static const uint8 rtc_changed[] = {0xEE, 0xF0, 'R', 'T', 'C', 0x01};
 
-    /*
-     * 基础健壮性检查：
-     * 1) 空指针直接返回
-     * 2) 画面通知帧只有 9 字节, 小于 12 字节的控件帧固定长度,
-     *    必须在大小过滤之前先做前置特判
-     */
+    if (frame == 0)
+        return;
 
-    /* 画面ID变化通知: EE B1 01 screen_id(2) FF FC FF FF = 9 字节 */
+    /* EE F7 YY MM WK DD HH MM SS FF FC FF FF */
+    if (size == 13U && frame[0] == 0xEEU && frame[1] == NOTIFY_READ_RTC)
+    {
+        RTC_Screen_OnRead(frame + 2);
+        return;
+    }
+    if (size == sizeof(rtc_changed) + 4U &&
+        memcmp(frame, rtc_changed, sizeof(rtc_changed)) == 0)
+    {
+        RTC_Screen_RequestSync();
+        return;
+    }
+
     if ((msg != 0) && (size >= 9U) && (msg->ctrl_msg == MSG_GET_CURRENT_SCREEN))
     {
         msg->screen_id  = PTR2U16((uint8 *)&msg->screen_id);
@@ -157,16 +152,7 @@ void ProcessMessage(PCTRL_MSG msg, uint16 size)            // 处理从串口接
         return;
     }
 
-    /* NOTIFY_READ_RTC(0xF7): EE F7 [7 bytes] FF FC FF FF = 13 字节 */
-    if ((msg != 0) && (size >= 13U) && (msg->ctrl_msg == NOTIFY_READ_RTC))
-    {
-        uint8 *rtc_ptr = ((uint8 *)msg) + 2;
-        NotifyReadRTC(rtc_ptr[0], rtc_ptr[1], rtc_ptr[2],
-                      rtc_ptr[3], rtc_ptr[4], rtc_ptr[5], rtc_ptr[6]);
-        return;
-    }
-
-    if ((msg == 0) || (size < HMI_FRAME_FIXED_LEN))        // 为什么要这么写：先过滤空指针和短帧，避免后面访问越界
+    if (size < HMI_FRAME_FIXED_LEN)        // 为什么要这么写：先过滤空指针和短帧，避免后面访问越界
     {
         return;
     }
@@ -316,57 +302,11 @@ void ProcessMessage(PCTRL_MSG msg, uint16 size)            // 处理从串口接
  * 2) 在NotifyText里把字符串转成参数并做范围检查。
  * 3) 复杂动作只置标志位，在主任务中执行，避免回调里阻塞。
  */
-/* 当前所在页面 ID (由 NotifyScreen 维护, main.c 中每秒刷新时间使用) */
-uint16_t g_current_screen = 0;
-
-/* RTC 时间设置页文本缓存 */
-uint8_t  _rtc_collected = 0;
-uint16_t _rtc_year      = 2000;
-uint8_t  _rtc_month     = 1;
-uint8_t  _rtc_day       = 1;
-uint8_t  _rtc_hour      = 0;
-uint8_t  _rtc_min       = 0;
-
-void NotifyScreen(uint16 screen_id)                         // 画面ID变化通知
+void NotifyScreen(uint16 screen_id)
 {
-    g_current_screen = screen_id;
     log_d("screen changed to %u", screen_id);
-
-    switch (screen_id)
-    {
-    case SCREEN_ID_RTC_SET:
-        {
-            RTC_Time_t t;
-            char buf[6];
-            RTC_MCU_GetTime(&t);
-            _rtc_collected = 0x1F;
-            _rtc_year  = t.year;
-            _rtc_month = t.month;
-            _rtc_day   = t.day;
-            _rtc_hour  = t.hour;
-            _rtc_min   = t.minute;
-            snprintf(buf, sizeof(buf), "%u", t.year);   HMI_SendTextFrame(SCREEN_ID_RTC_SET, CTRL_ID_RTC_YEAR,   buf);
-            snprintf(buf, sizeof(buf), "%u", t.month);  HMI_SendTextFrame(SCREEN_ID_RTC_SET, CTRL_ID_RTC_MONTH,  buf);
-            snprintf(buf, sizeof(buf), "%u", t.day);    HMI_SendTextFrame(SCREEN_ID_RTC_SET, CTRL_ID_RTC_DAY,    buf);
-            snprintf(buf, sizeof(buf), "%u", t.hour);   HMI_SendTextFrame(SCREEN_ID_RTC_SET, CTRL_ID_RTC_HOUR,   buf);
-            snprintf(buf, sizeof(buf), "%u", t.minute); HMI_SendTextFrame(SCREEN_ID_RTC_SET, CTRL_ID_RTC_MINUTE, buf);
-        }
-        return;
-
-    default:
-        {
-            RTC_Time_t t;
-            char buf[8];
-            RTC_MCU_GetTime(&t);
-            RTC_MCU_FormatHM(&t, buf, sizeof(buf));
-            HMI_SendTextFrame(screen_id, CTRL_ID_TIME_TEXT, buf);
-        }
-        break;
-    }
-
     (void)screen_id;
 }
-
 void NotifyTouchXY(uint8 press, uint16 x, uint16 y)         // 触摸坐标事件响应
 {
     // 建议：根据press区分按下/松开，结合坐标做调试或手势逻辑。
@@ -377,41 +317,6 @@ void NotifyTouchXY(uint8 press, uint16 x, uint16 y)         // 触摸坐标事�
 
 void NotifyButton(uint16 screen_id, uint16 control_id, uint8 state)
 {
-    /* 时间设置页 —— 确定按钮: 直接用缓存值 */
-    if (screen_id == SCREEN_ID_RTC_SET && control_id == CTRL_ID_RTC_BTN_OK && state == BUTTON_STATE_PRESS)
-    {
-        RTC_Time_t t;
-
-        if (_rtc_collected != 0x1F)
-        {
-            log_w("RTC text not all collected (0x%02X), ignored", _rtc_collected);
-            return;
-        }
-
-        _rtc_collected = 0;
-
-        t.year   = _rtc_year;
-        t.month  = _rtc_month;
-        t.day    = _rtc_day;
-        t.hour   = _rtc_hour;
-        t.minute = _rtc_min;
-        t.second = 0;
-        t.week   = RTC_CalcWeek(t.year, t.month, t.day);
-
-        if (RTC_IsValid(&t))
-        {
-            RTC_MCU_SetTime(&t);
-            RTC_SaveToEEPROM(&t);
-            log_i("RTC set: %u-%02u-%02u %02u:%02u:%02u",
-                  t.year, t.month, t.day, t.hour, t.minute, t.second);
-        }
-        else
-        {
-            log_w("RTC set invalid: %u-%02u-%02u %02u:%02u",
-                  t.year, t.month, t.day, t.hour, t.minute);
-        }
-        return;
-    }
     switch (screen_id)
     {
     case SCREEN_ID_WASH:
@@ -423,19 +328,6 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8 state)
         return;
 
     /* 时间设置页 —— 确定按钮 (screen_id=0x000B, control_id=0x0007) */
-    case SCREEN_ID_RTC_SET:
-        if (control_id == CTRL_ID_RTC_BTN_OK && state == BUTTON_STATE_PRESS)
-        {
-            log_i("RTC set OK button pressed, reading 5 texts...");
-            /* 按钮按下后屏幕自动切页, MCU 依次读取 5 个文本控件的值 */
-            GetControlValue(SCREEN_ID_RTC_SET, CTRL_ID_RTC_YEAR);
-            GetControlValue(SCREEN_ID_RTC_SET, CTRL_ID_RTC_MONTH);
-            GetControlValue(SCREEN_ID_RTC_SET, CTRL_ID_RTC_DAY);
-            GetControlValue(SCREEN_ID_RTC_SET, CTRL_ID_RTC_HOUR);
-            GetControlValue(SCREEN_ID_RTC_SET, CTRL_ID_RTC_MINUTE);
-        }
-        return;
-
     default:
         break;                                             // 其它页面按钮暂未绑定业务，后续可继续新增页面处理函数
     }
@@ -447,31 +339,6 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8 state)
 
 void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
 {
-    /* 时间设置页 —— 缓存年/月/日/时/分, 按钮按下时统一写入 */
-    if (screen_id == SCREEN_ID_RTC_SET)
-    {
-        extern uint8_t  _rtc_collected;
-        extern uint16_t _rtc_year;
-        extern uint8_t  _rtc_month, _rtc_day, _rtc_hour, _rtc_min;
-        uint16_t val;
-
-        val = (uint16_t)atoi((const char *)str);
-
-        switch (control_id)
-        {
-        case CTRL_ID_RTC_YEAR:   _rtc_year  = val; _rtc_collected |= 0x01; break;
-        case CTRL_ID_RTC_MONTH:  _rtc_month = (uint8_t)val; _rtc_collected |= 0x02; break;
-        case CTRL_ID_RTC_DAY:    _rtc_day   = (uint8_t)val; _rtc_collected |= 0x04; break;
-        case CTRL_ID_RTC_HOUR:   _rtc_hour  = (uint8_t)val; _rtc_collected |= 0x08; break;
-        case CTRL_ID_RTC_MINUTE: _rtc_min   = (uint8_t)val; _rtc_collected |= 0x10; break;
-        default: return;
-        }
-
-        log_i("RTC cache: collected=0x%02X y=%u m=%u d=%u h=%u min=%u",
-              _rtc_collected, _rtc_year, _rtc_month, _rtc_day, _rtc_hour, _rtc_min);
-        return;
-    }
-
     switch (screen_id)
     {
     case SCREEN_ID_COFFEE:
@@ -561,52 +428,4 @@ void NotifyWriteFlash(uint8 status)
 {
     // 建议：根据status提示保存成功/失败，并决定是否重发。
     (void)status;                                           // 为什么要这么写：当前仅保留接口，待业务实现
-}
-
-void NotifyReadRTC(uint8 year, uint8 month, uint8 week, uint8 day, uint8 hour, uint8 minute, uint8 second)
-{
-    (void)year; (void)month; (void)week; (void)day;
-    (void)hour; (void)minute; (void)second;
-}
-
-/* 分钟变化时刷新当前页面时间 (由 main 循环中 FLAG_1S 调用) */
-void RTC_RefreshIfMinuteChanged(void)
-{
-    static uint8_t last_min = 0xFF;
-    RTC_Time_t t;
-
-    if (g_current_screen == SCREEN_ID_RTC_SET) return;
-    RTC_MCU_GetTime(&t);
-    if (t.minute != last_min)
-    {
-        char buf[8];
-        last_min = t.minute;
-        RTC_MCU_FormatHM(&t, buf, sizeof(buf));
-        HMI_SendTextFrame(g_current_screen, CTRL_ID_TIME_TEXT, buf);
-        RTC_SaveToEEPROM(&t);    /* 每分钟同步到 EEPROM */
-    }
-}
-
-/* 一次性 DMA 发送 SetTextValue 帧 (绕过 SendChar 逐字节阻塞) */
-void HMI_SendTextFrame(uint16_t screen_id, uint16_t control_id, const char *str)
-{
-    uint8_t frame[64];
-    uint8_t idx = 0;
-    uint8_t i;
-
-    frame[idx++] = 0xEE;
-    frame[idx++] = 0xB1;
-    frame[idx++] = 0x10;
-    frame[idx++] = (uint8_t)(screen_id >> 8);
-    frame[idx++] = (uint8_t)(screen_id);
-    frame[idx++] = (uint8_t)(control_id >> 8);
-    frame[idx++] = (uint8_t)(control_id);
-    for (i = 0; str[i] != '\0'; i++)
-        frame[idx++] = (uint8_t)str[i];
-    frame[idx++] = 0xFF;
-    frame[idx++] = 0xFC;
-    frame[idx++] = 0xFF;
-    frame[idx++] = 0xFF;
-
-    USART2_DMA_SendData(frame, idx);
 }

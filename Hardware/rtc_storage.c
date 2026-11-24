@@ -38,7 +38,7 @@ static uint8_t _is_leap(uint16_t year)
 /*==========================================================================
  * 每月最大天数 (内部使用)
  *==========================================================================*/
-static uint8_t _days_in_month(uint16_t year, uint8_t month)
+uint8_t RTC_DaysInMonth(uint16_t year, uint8_t month)
 {
     static const uint8_t days[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
     if (month == 0 || month > 12) return 0;
@@ -88,7 +88,7 @@ uint8_t RTC_IsValid(const RTC_Time_t *t)
     if (t->minute > 59)                     return 0;
     if (t->second > 59)                     return 0;
 
-    max_day = _days_in_month(t->year, t->month);
+    max_day = RTC_DaysInMonth(t->year, t->month);
     if (t->day < 1 || t->day > max_day)     return 0;
 
     return 1;

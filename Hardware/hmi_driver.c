@@ -50,7 +50,7 @@ void HMI_LinkInit(void)
 
 void HMI_LinkTask(void)
 {
-    uint8 cmd_buf[CMD_MAX_SIZE];
+    static uint8 cmd_buf[CMD_MAX_SIZE];
     qsize cmd_len = 0;
 
     // 没有回调触发且DMA当前无可读数据时，立即返回降低CPU占用。
@@ -2047,11 +2047,29 @@ void Record_GetCount(uint16 screen_id,uint16 control_id)
 /*!
 *  \brief     读取屏幕RTC时间
 */
-void ReadRTC(void)
+uint8 ReadRTC(void)
 {
-    BEGIN_CMD();
-    TX_8(0x82);
-    END_CMD();
+    uint8 frame[] = {
+        0xEE, 0x82,
+#if(CRC16_ENABLE)
+        0x00, 0x00,
+#endif
+        0xFF, 0xFC, 0xFF, 0xFF
+    };
+
+    if (USART2_DMA_IsTxBusy())
+        return 0U;
+
+#if(CRC16_ENABLE)
+    {
+        uint16 crc = 0xFFFF;
+        AddCRC16(frame + 1, 1, &crc);
+        frame[2] = (uint8)(crc >> 8);
+        frame[3] = (uint8)crc;
+    }
+#endif
+
+    return USART2_DMA_SendData(frame, sizeof(frame)) == USART_DMA_OK;
 }
 
 /*!
