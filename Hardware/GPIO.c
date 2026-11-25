@@ -5,11 +5,11 @@
 #include "USARTDMA.h"
 #include "flag.h"
 
-// 缓存液位传感器原始ADC值(0-4095)
+/* 液位传感器采用 12 位 ADC 原始值。启动时缓存为 0，停止采样时保留最后一次结果。 */
 static volatile uint16_t g_liquid_level_raw = 0;               // 液位传感器原始ADC值缓存
 static volatile uint8_t g_liquid_level_started = 0;            // 采样状态标志(0=未开始, 1=正在采样)
 
-// 初始化所有GPIO引脚
+/* 初始化执行器 GPIO 和 PA0 模拟输入，随后对 ADC1 进行校准。 */
 void GPIO_Init_ALL(void)
 {
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOC | RCC_APB2Periph_ADC1, ENABLE);
@@ -61,8 +61,8 @@ void Liquid_Level_ADC_Init(void)
     ADC_Cmd(LIQUID_LEVEL_ADC, DISABLE);                      // 校准后先关，由Liquid_Level_Update按需开启
 }
 
-// 采样并更新缓存值(供100ms周期调用, 非阻塞)
-// 使用单次转换模式：每100ms软件触发一次ADC转换，读取EOC后更新缓存
+/* 100 ms 任务轮询。采样使能后的第一次调用只触发转换，后续调用看到 EOC 才更新缓存。
+ * 每读完一个结果再触发下一次。若转换尚未结束，本轮保持原值并立即返回。 */
 void Liquid_Level_Update(void)
 {
     if (FLAG_LIQUID_LEVEL_SAMPLE == 0)
@@ -99,6 +99,9 @@ uint16_t Liquid_Level_Read(void)
     return g_liquid_level_raw;
 }
 
+/* 以下五个接口均使用高电平作为开启命令，state 非零即置高。
+ * 每次写脚后同步更新软件标志。调试模式额外发 USART1 文本，接口本身无状态去重。
+ */
 // 控制循环泵PA6
 void circulation_pump_Set(uint8_t state)
 {
@@ -169,7 +172,8 @@ void Liquid_Outlet_Three_Way_Valve_Set(uint8_t state)
     }
 }
 
-void set_all_gpio_low(void)  //关闭所有
+/* 依次关闭五路执行器输出并更新状态标志，流程启动标志由业务层管理。 */
+void set_all_gpio_low(void)
 {
     circulation_pump_Set(0);
     water_inlet_solenoid_valve_Set(0);

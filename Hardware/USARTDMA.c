@@ -5,7 +5,9 @@
 #include <stdarg.h> // 可变参数
 #include <string.h> // 字符串函数
 
-/* =============== 全局变量定义 =============== */
+/* 每路各有 256 字节 TX 缓冲和 RX 环形 DMA 缓冲。
+ * USART_DMA_* 对应 USART1 日志，历史命名 USART2_DMA_* 对应 USART3 屏幕。
+ * TX 为普通模式，一次只持有一段数据。RX 持续写环，前台通过 CNDTR 轮询。 */
 USART_DMA_HandleTypeDef husart1; // USART1 句柄（日志）
 USART_DMA_HandleTypeDef husart2; // USART2 句柄（屏幕）
 
@@ -363,7 +365,9 @@ static void USART2_DMA_NVIC_Init(void)
         NVIC_Init(&NVIC_InitStructure); // 初始化 NVIC
     }
 
-/* =============== 数据发送函数 =============== */
+/* SendData 若见 TX 忙会先等上一段 DMA 完成，有循环次数上限。
+ * 空闲后复制进静态缓冲并启动 DMA，成功返回时调用方可以复用源缓冲区。
+ * SendData_IT 若入口已忙则直接返回 BUSY。两种接口均按单一发送方使用。 */
 
 /**
   * @brief  通过DMA发送数据
@@ -373,7 +377,7 @@ static void USART2_DMA_NVIC_Init(void)
   */
 USART_DMA_Status USART_DMA_SendData(uint8_t *data, uint16_t length)
 {
-    uint32_t timeout = 1000000UL;                                    // 超时计数器（约1秒 @72MHz）
+    uint32_t timeout = 1000000UL;                                    // 忙等次数上限，实际耗时受编译优化与中断影响
 
     if (length == 0) { // 长度为 0
         return USART_DMA_ERROR; // 返回错误
@@ -462,7 +466,7 @@ USART_DMA_Status USART_DMA_SendData_IT(uint8_t *data, uint16_t length)
 
 USART_DMA_Status USART2_DMA_SendData(uint8_t *data, uint16_t length)
 {
-    uint32_t timeout = 1000000UL;                                    // 超时计数器（约1秒 @72MHz）
+    uint32_t timeout = 1000000UL;                                    // 忙等次数上限，实际耗时受编译优化与中断影响
 
     if (length == 0) { // 长度为 0
         return USART_DMA_ERROR; // 返回错误
@@ -538,7 +542,8 @@ USART_DMA_Status USART2_DMA_SendData_IT(uint8_t *data, uint16_t length)
     return USART2_DMA_SendData(data, length); // 直接调用发送
 }
 
-/* =============== 数据接收函数 =============== */
+/* 缓冲区大小减 CNDTR 得到 DMA 写位置。Available 使用写位置与前台读位置的环形距离。
+ * 当前未累计 DMA 整圈次数，写位置追上读位置会覆盖未读数据，距离也可能重新变为 0。 */
 
 /**
   * @brief  读取接收到的数据
@@ -601,7 +606,7 @@ uint16_t USART_DMA_Available(void)
     uint16_t dma_count = USART_DMA_RX_CHANNEL->CNDTR; // 读取计数器
     
     // 计算DMA已经接收的数据量
-    uint16_t dma_received = USART_DMA_RX_BUFFER_SIZE - dma_count; // 已接收字节
+    uint16_t dma_received = USART_DMA_RX_BUFFER_SIZE - dma_count; // 当前 DMA 写入位置
     
     // 计算缓冲区中的有效数据
     if (dma_received >= husart1.rx_read_pos) { // 未回绕
@@ -616,7 +621,7 @@ uint16_t USART_DMA_Available(void)
 uint16_t USART2_DMA_Available(void)
 {
     uint16_t dma_count = USART2_DMA_RX_CHANNEL->CNDTR; // 读取计数器
-    uint16_t dma_received = USART_DMA_RX_BUFFER_SIZE - dma_count; // 已接收字节
+    uint16_t dma_received = USART_DMA_RX_BUFFER_SIZE - dma_count; // 当前 DMA 写入位置
 
     if (dma_received >= husart2.rx_read_pos) { // 未回绕
         husart2.rx_available = dma_received - husart2.rx_read_pos; // 直接相减
@@ -778,7 +783,7 @@ bool USART2_DMA_IsTxBusy(void)
 
 /**
   * @brief  检查USART1接收是否空闲
-  * @retval true-空闲, false-忙
+  * @retval 初始化设为 true，RX DMA 整圈中断清零，当前未按线路空闲回置
   */
 bool USART_DMA_IsRxIdle(void)
 {
@@ -791,17 +796,17 @@ bool USART2_DMA_IsRxIdle(void)
 }
 
 /**
-  * @brief  获取USART1发送缓冲区剩余空间
-  * @retval 剩余空间字节数
+  * @brief  获取 USART1 单次 DMA 发送的缓冲容量。
+  * @retval 固定返回缓冲区大小，发送忙状态用 IsTxBusy 查询
   */
 uint16_t USART_DMA_GetTxBufferFree(void)
 {
-    return USART_DMA_TX_BUFFER_SIZE; // 返回发送缓冲可用量
+    return USART_DMA_TX_BUFFER_SIZE; // 固定容量，未扣除正在发送的字节
 }
 
 uint16_t USART2_DMA_GetTxBufferFree(void)
 {
-    return USART_DMA_TX_BUFFER_SIZE; // 返回发送缓冲可用量
+    return USART_DMA_TX_BUFFER_SIZE; // 固定容量，未扣除正在发送的字节
 }
 
 /**
@@ -850,7 +855,9 @@ void USART2_DMA_SetTxCompleteCallback(void (*callback)(void))
     husart2.tx_complete_callback = callback; // 设置发送完成回调
 }
 
-/* =============== 中断处理函数 =============== */
+/* TX DMA 完成表示数据已搬到串口，最后一个字节可能仍在移位输出。
+ * RX TC 在写满整圈时触发。回调收到的是环形数组首地址，应用轮询处理回绕。
+ * HT 只清标志，短帧由 HMI_LinkTask 轮询获得。 */
 
 /**
   * @brief  USART1 DMA发送中断处理函数
@@ -900,9 +907,7 @@ void USART_DMA_RX_IRQHandler(void)
         // 清除中断标志
         DMA_ClearITPendingBit(USART_DMA_RX_TC_FLAG); // 清标志
         
-        // 这里可以处理接收完成事件
-        // 例如：设置接收完成标志
-        husart1.rx_idle = false; // 标记接收中
+        husart1.rx_idle = false; // 已发生整圈接收事件
         
         // 如果有回调函数，调用它
         if (husart1.rx_callback != NULL) { // 有回调
@@ -917,7 +922,6 @@ void USART_DMA_RX_IRQHandler(void)
         // 清除中断标志
         DMA_ClearITPendingBit(USART_DMA_RX_HT_FLAG); // 清标志
         
-        // 这里可以处理半传输完成事件
     }
 }
 
@@ -926,7 +930,7 @@ void USART2_DMA_RX_IRQHandler(void)
     if (DMA_GetITStatus(USART2_DMA_RX_TC_FLAG) != RESET) { // 检查 TC 中断
         DMA_ClearITPendingBit(USART2_DMA_RX_TC_FLAG); // 清标志
 
-        husart2.rx_idle = false; // 标记接收中
+        husart2.rx_idle = false; // 已发生整圈接收事件
 
         if (husart2.rx_callback != NULL) { // 有回调
             uint16_t available = USART2_DMA_Available(); // 可用字节
@@ -945,14 +949,15 @@ void USART2_DMA_RX_IRQHandler(void)
 
 void UartInit(uint32_t Baudrate)
 {
-    USART2_DMA_Init(Baudrate); // 初始化 USART2（屏幕通信）
+    USART2_DMA_Init(Baudrate); // 初始化 USART3 屏幕口
 }
 
+/* 厂商 HMI 兼容入口。每字节启动一次 DMA 并忙等该次 DMA 完成。 */
 void SendChar(unsigned char t)
 {
     uint32_t timeout = 1000000UL;                                    // 超时计数器
     uint8_t temp = (uint8_t)t; // 转换为 uint8_t
-    USART2_DMA_SendData(&temp, 1); // 发送字节（USART2 → 屏幕）
+    USART2_DMA_SendData(&temp, 1); // 发送单字节到 USART3 屏幕口
     while (USART2_DMA_IsTxBusy())
     {
         if (--timeout == 0U)                                          // 超时保护

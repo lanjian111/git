@@ -23,7 +23,7 @@ extern "C" { // C 语言链接
 #define USART_DMA_TX_PIN             GPIO_Pin_9 // USART1 TX 引脚
 #define USART_DMA_RX_PIN             GPIO_Pin_10 // USART1 RX 引脚
 
-// USART2 (PB10/PB11) — HMI串口屏通信 (使用USART3外设)
+// 屏幕口沿用 USART2_DMA_* 前缀，实际外设为 USART3，TX=PB10，RX=PB11。
 #define USART2_DMA_USARTx            USART3 // USART3 实例
 #define USART2_DMA_GPIOx             GPIOB // USART3 GPIO 端口
 #define USART2_DMA_TX_PIN            GPIO_Pin_10 // USART3 TX 引脚 (PB10)
@@ -81,21 +81,21 @@ typedef struct { // DMA 句柄定义
     
     // 状态标志
     volatile bool tx_busy; // 发送忙标志
-    volatile bool rx_idle; // 接收空闲标志
+    volatile bool rx_idle; // 初始化为 true，RX DMA 整圈中断后为 false
     
     // 缓冲区索引
-    uint16_t rx_write_pos; // 接收写指针
+    uint16_t rx_write_pos; // 保留字段，实际写位置由 DMA CNDTR 推算
     uint16_t rx_read_pos; // 接收读指针
     uint16_t rx_available; // 可读字节数
     
-    // 回调函数指针（可选）
+    // 回调由对应 DMA 中断执行。RX 只在整圈事件且有可读数据时调用。
     void (*rx_callback)(uint8_t *data, uint16_t length); // 接收回调
     void (*tx_complete_callback)(void); // 发送完成回调
 } USART_DMA_HandleTypeDef; // 句柄类型名
 
 /* =============== 全局变量声明 =============== */
 extern USART_DMA_HandleTypeDef husart1; // USART1 句柄（日志）
-extern USART_DMA_HandleTypeDef husart2; // USART2 句柄（屏幕）
+extern USART_DMA_HandleTypeDef husart2; // USART3 句柄（屏幕）
 
 /* =============== 函数声明 =============== */
 
@@ -106,7 +106,8 @@ void USART_DMA_DeInit(void); // 反初始化 USART1 DMA（日志）
 void USART2_DMA_Init(uint32_t baudrate); // 初始化 USART2 DMA（屏幕）
 void USART2_DMA_DeInit(void); // 反初始化 USART2 DMA（屏幕）
 
-// 数据发送函数
+/* SendData 返回 OK 表示已复制并启动 DMA。前一次尚在发送时先忙等。
+ * SendData_IT 遇到忙直接返回。SendString 截断到 256 字节且不发送 NUL。 */
 USART_DMA_Status USART_DMA_SendData(uint8_t *data, uint16_t length); // USART1 发送数据
 USART_DMA_Status USART_DMA_SendString(const char *str); // USART1 发送字符串
 USART_DMA_Status USART_DMA_SendData_IT(uint8_t *data, uint16_t length); // USART1 中断方式发送
@@ -115,7 +116,8 @@ USART_DMA_Status USART2_DMA_SendData(uint8_t *data, uint16_t length); // USART2 
 USART_DMA_Status USART2_DMA_SendString(const char *str); // USART2 发送字符串
 USART_DMA_Status USART2_DMA_SendData_IT(uint8_t *data, uint16_t length); // USART2 中断方式发送
 
-// 数据接收函数
+/* ReceiveData 和 ReadByte 消耗 RX 环中的数据。ReadByte 无数据时也返回 0x00。
+ * 如需区分，先查 Available。FindString 返回距读位置的字节偏移，且不消耗数据。 */
 uint16_t USART_DMA_ReceiveData(uint8_t *buffer, uint16_t max_len); // USART1 读取接收数据
 uint16_t USART_DMA_Available(void); // USART1 获取可读字节数
 void USART_DMA_ClearRxBuffer(void); // 清空接收缓冲
@@ -128,7 +130,8 @@ void USART2_DMA_ClearRxBuffer(void); // USART2 清空接收缓冲
 uint8_t USART2_DMA_ReadByte(void); // USART2 读取单字节
 bool USART2_DMA_FindString(const char *str, uint16_t *position); // USART2 查找字符串
 
-// 状态查询函数
+/* IsTxBusy 表示 TX DMA 是否忙。IsRxIdle 返回内部保留标志，
+ * GetTxBufferFree 在当前实现固定返回 TX 容量。 */
 bool USART_DMA_IsTxBusy(void); // USART1 查询发送忙
 bool USART_DMA_IsRxIdle(void); // USART1 查询接收空闲
 uint16_t USART_DMA_GetTxBufferFree(void); // USART1 获取发送缓冲可用量
@@ -172,11 +175,11 @@ void SendChar(unsigned char t);
 // 检查是否有数据可读
 #define USART_DMA_HasData()          (USART_DMA_Available() > 0) // 判断可读
 
-// 等待发送完成
+// 忙等 DMA 发送结束，依赖中断清忙状态
 #define USART_DMA_WaitTxComplete() \
     do { \
         while(USART_DMA_IsTxBusy()); \
-    } while(0) // 等待发送结束
+    } while(0) // DMA 完成时最后一个字节可能仍在串口移位输出
 
 
 

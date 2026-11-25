@@ -1,8 +1,8 @@
 #include "delay.h"                                                 // 延时接口声明
 #include "sys.h"                                                   // 系统基础类型定义
-#include "LED.h"                                                   // 工程通用头文件依赖
-#include "GPIO.h"                                                  // 工程通用头文件依赖
-#include "flag.h"                                                  // 工程通用头文件依赖
+#include "LED.h"
+#include "GPIO.h"
+#include "flag.h"
 #include "stm32f10x.h"                                             // STM32寄存器与内核定义
 
 static u32  fac_us=0;                                                 // us延时倍乘系数
@@ -11,7 +11,9 @@ static volatile u32 g_ms = 0;                                         // 1ms系统
 
 
 
-// 初始化延时模块
+/* SysTick 提供 1 ms 调度时间基准，DWT CYCCNT 则供软件 I2C 做微秒级忙等。
+ * 两个计数都使用当前 SystemCoreClock 配置，上层用无符号计数差比较经过时间。
+ */
 void delay_init()	 
 {
 	SysTick_Config(SystemCoreClock / 1000U);                           // 配置SysTick每1ms产生一次中断
@@ -26,7 +28,7 @@ void delay_init()
 	fac_us = SystemCoreClock / 1000000U;                               // 计算每1us对应的CPU时钟周期数
 }										    
 
-// us级阻塞延时
+/* 微秒级忙等。nus * fac_us 必须能放入 u32，适合短总线时序。 */
 void delay_us(u32 nus)
 {		
 	u32 ticks = nus * fac_us;                                          // 计算本次延时需要等待的总周期数
@@ -37,7 +39,7 @@ void delay_us(u32 nus)
 	}
 }
 
-// ms级阻塞延时
+/* 毫秒级忙等依赖 SysTick 中断继续运行，适用于允许中断抢占的调用环境。 */
 void delay_ms(u16 nms)
 {
 	u32 start = delay_millis();                                        // 记录当前ms节拍起点

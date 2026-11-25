@@ -7,22 +7,25 @@
 #include "coffemake.h"                                              // 引入排水函数声明
 #include "elog.h"                                                   // EasyLogger 统一日志接口
 
+/* 两段清洗共用一套顺序。进水期间 ADC 超过泵阈值后允许循环，
+ * 到目标后浸泡 60 秒，再经过两次 12 秒切换。排液交给 Coffee_DrainWaste_Task。
+ * 液位是 ADC 原始值，所有定时都按 SysTick 毫秒差判断，由 100 ms 任务推进。 */
 #define LOG_TAG                         "wash"
 
-#define WASH_LEVEL_LOW_THRESHOLD              100U                    // 排液结束液位阈值
+#define WASH_LEVEL_LOW_THRESHOLD              100U                    // 历史保留，实际排液阈值由 Coffee_DrainWaste_Task 使用
 #define WASH_LEVEL_PUMP_ON_THRESHOLD          1000U                   // 允许开启循环泵的液位阈值
 #define WASH_LEVEL_STAGE1_TARGET              2000U                   // 第一段清洗目标液位
 #define WASH_LEVEL_STAGE2_TARGET              3000U                   // 第二段清洗目标液位
 
 #define WASH_SOAK_TIME_MS                     60000UL                 // 浸泡/循环保持时间60秒
 #define WASH_SOAK_TO_CIRC_DELAY_MS            12000UL                 // 浸泡结束后等待12秒再开循环三通
-#define WASH_CIRC_TO_PUMP_DELAY_MS            12000UL                 // 开循环三通后等待12秒再开泵
-#define WASH_LOW_LEVEL_HOLD_MS                2000UL                  // 液位低于阈值后继续保持2秒
+#define WASH_CIRC_TO_PUMP_DELAY_MS            12000UL                 // 开循环三通后等待 12 秒，再移交排废液
+#define WASH_LOW_LEVEL_HOLD_MS                2000UL                  // 历史保留，低液位保持已由排液任务处理
 #define WASH_REFILL_DELAY_MS                  12000UL                 // 关闭阀门后等待12秒再进入下一段
-#define WASH_FILL_TIMEOUT_MS                  30000UL                 // 第一段进水30秒未达到1000则超时
-#define WASH_FILL_TOTAL_TIMEOUT_MS            120000UL                // 整个进水阶段总超时120秒（含达到1000后到2000的过程）
-#define WASH_DRAIN_TIMEOUT_MS                 60000UL                 // 排液最长60秒，超时则终止清洗
-#define WASH_LEVEL_DEBOUNCE_COUNT             3U                      // 液位阈值连续确认次数（每次100ms）
+#define WASH_FILL_TIMEOUT_MS                  30000UL                 // 任一段进水已满 30 秒且当下 ADC ≤ 1000 时超时
+#define WASH_FILL_TOTAL_TIMEOUT_MS            120000UL                // 每段进水各有 120 秒总时限，从该段开始计时
+#define WASH_DRAIN_TIMEOUT_MS                 60000UL                 // 历史保留，实际清洗侧等排废液的上限为 90 秒
+#define WASH_LEVEL_DEBOUNCE_COUNT             3U                      // 历史保留，实际清洗进水只判断当前缓存值
 
 typedef enum
 {
@@ -31,23 +34,23 @@ typedef enum
 	WASH_STATE_STAGE1_FILL,                                           // 第一段进水到2000
 	WASH_STATE_STAGE1_SOAK,                                           // 第一段到位后保持60秒
 	WASH_STATE_STAGE1_OPEN_CIRC_DELAY,                                // 第一段浸泡结束后等待12秒再开循环三通
-	WASH_STATE_STAGE1_START_PUMP_DELAY,                               // 第一段开循环三通后等待12秒再开泵
-	WASH_STATE_STAGE1_DRAIN,                                          // 第一段排液直到液位低于100
-	WASH_STATE_STAGE1_LOW_LEVEL_HOLD,                                 // 第一段低液位后继续保持2秒
+	WASH_STATE_STAGE1_START_PUMP_DELAY,                               // 第一段开循环三通后等待 12 秒再委托排废液
+	WASH_STATE_STAGE1_DRAIN,                                          // 历史状态，当前流程没有入口
+	WASH_STATE_STAGE1_LOW_LEVEL_HOLD,                                 // 第一段已发出排废液请求，等待标志清零
 	WASH_STATE_STAGE1_REFILL_DELAY,                                   // 第一段结束后等待12秒进入第二段
 	WASH_STATE_STAGE2_FILL,                                           // 第二段进水到3000
 	WASH_STATE_STAGE2_SOAK,                                           // 第二段到位后保持60秒
 	WASH_STATE_STAGE2_OPEN_CIRC_DELAY,                                // 第二段浸泡结束后等待12秒再开循环三通
-	WASH_STATE_STAGE2_START_PUMP_DELAY,                               // 第二段开循环三通后等待12秒再开泵
-	WASH_STATE_STAGE2_DRAIN,                                          // 第二段排液直到液位低于100
-	WASH_STATE_STAGE2_LOW_LEVEL_HOLD,                                 // 第二段低液位后继续保持2秒
-	WASH_STATE_STAGE2_FINISH_DELAY                                    // 第二段结束后等待12秒并收尾
+	WASH_STATE_STAGE2_START_PUMP_DELAY,                               // 第二段开循环三通后等待 12 秒再委托排废液
+	WASH_STATE_STAGE2_DRAIN,                                          // 第二段已发出排废液请求，等待标志清零
+	WASH_STATE_STAGE2_LOW_LEVEL_HOLD,                                 // 第二段排液标志清零后进入 12 秒收尾等待
+	WASH_STATE_STAGE2_FINISH_DELAY                                    // 复用排液结束时的计时起点，完成清洗
 } WashState;                                                        // 清洗流程状态枚举
 
 static WashState g_wash_state = WASH_STATE_IDLE;                     // 当前清洗状态
 static uint32_t g_wash_state_start_ms = 0;                           // 当前状态开始时间戳
 
-static void wash_change_state(WashState next_state, const char *message) // 切换状态并发送一次调试信息
+static void wash_change_state(WashState next_state, const char *message) // 切换状态并写日志，计时起点由调用方更新
 {
 	g_wash_state = next_state;                                         // 更新当前清洗状态
 	log_i("%s", message);                                              // 通过 EasyLogger 输出当前进入的状态信息
@@ -93,7 +96,7 @@ static void wash_set_all_closed(void)                                // 关闭�
 	wash_set_outlet_valve(0);                                         // 关闭出液三通阀
 }
 
-void Wash_ResetState(void)                                           // 复位整个清洗流程状态
+void Wash_ResetState(void)                                           // 复位清洗本身，启动和排废液标志由调用方管理
 {
 	FLAG_CIRCULATION_PUMP_ENABLE = 0;                                 // 清除循环泵流程使能标志
 	FLAG_LIQUID_LEVEL_SAMPLE = 0;                                     // 关闭液位采样使能标志
@@ -136,7 +139,7 @@ void Wash_Task(void)                                                 // 每100ms
 		{
 			FLAG_CIRCULATION_PUMP_ENABLE = 1;                            // 置位循环泵流程使能标志
 		}
-		/* 30秒未达1000则超时终止 */
+		/* 计时满 30 秒后，只要本轮 ADC ≤ 1000 即终止，即使此前曾高于 1000。 */
 		if (liquid_level_adc <= WASH_LEVEL_PUMP_ON_THRESHOLD
 		    && delay_expired(g_wash_state_start_ms, WASH_FILL_TIMEOUT_MS))
 		{
@@ -201,7 +204,7 @@ void Wash_Task(void)                                                 // 每100ms
 		break;                                                          // 本周期结束
 
 	case WASH_STATE_STAGE1_LOW_LEVEL_HOLD:                            // 等待排废液完成
-		/* 排废液任务完成后会清零 FLAG_DRAIN_WASTE，此处轮询等待 */
+		/* 排液正常结束和泵超时都清零同一标志，清洗侧据此继续；这里没有单独结果码。 */
 		if (FLAG_DRAIN_WASTE == 0)
 		{
 			g_wash_state_start_ms = delay_millis();
@@ -230,7 +233,7 @@ void Wash_Task(void)                                                 // 每100ms
 		{
 			FLAG_CIRCULATION_PUMP_ENABLE = 1;                            // 置位循环泵流程使能标志
 		}
-		/* 30秒未达1000则超时终止 */
+		/* 计时满 30 秒后，只要本轮 ADC ≤ 1000 即终止，即使此前曾高于 1000。 */
 		if (liquid_level_adc <= WASH_LEVEL_PUMP_ON_THRESHOLD
 		    && delay_expired(g_wash_state_start_ms, WASH_FILL_TIMEOUT_MS))
 		{
@@ -293,7 +296,7 @@ void Wash_Task(void)                                                 // 每100ms
 		}
 		break;
 
-	case WASH_STATE_STAGE2_DRAIN:                                     // 第二段排液状态 → 等待排废液完成
+	case WASH_STATE_STAGE2_DRAIN:                                     // 等待排废液标志清零，与第一段使用相同的完成条件
 		if (FLAG_DRAIN_WASTE == 0)
 		{
 			g_wash_state_start_ms = delay_millis();
@@ -308,14 +311,14 @@ void Wash_Task(void)                                                 // 每100ms
 		}
 		break;
 
-	case WASH_STATE_STAGE2_LOW_LEVEL_HOLD:                            // 第二段排液完成后的等待
+	case WASH_STATE_STAGE2_LOW_LEVEL_HOLD:                            // 从排液标志清零起等待 12 秒
 		if (delay_expired(g_wash_state_start_ms, WASH_REFILL_DELAY_MS)) // 等待12秒
 		{
 			wash_change_state(WASH_STATE_STAGE2_FINISH_DELAY, "WASH_STATE_STAGE2_FINISH_DELAY");
 		}
 		break;
 
-	case WASH_STATE_STAGE2_FINISH_DELAY:                              // 第二段完成后的结束等待状态
+	case WASH_STATE_STAGE2_FINISH_DELAY:                              // 沿用同一时间戳，通常在进入本状态的下一轮收尾
 		if (delay_expired(g_wash_state_start_ms, WASH_REFILL_DELAY_MS)) // 非阻塞判断12秒是否到时
 		{
 			FLAG_WASH_START = 0;                                         // 自动清除清洗启动标志
@@ -324,7 +327,7 @@ void Wash_Task(void)                                                 // 每100ms
 		break;                                                          // 本周期结束
 
 	default:                                                          // 异常状态保护分支
-		Wash_ResetState();                                             // 出现未知状态时强制复位
+		Wash_ResetState();                                             // 未知状态回到 IDLE，原启动标志仍由调用方管理
 		break;                                                          // 返回空闲状态
 	}
 }

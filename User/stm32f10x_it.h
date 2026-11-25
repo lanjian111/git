@@ -43,10 +43,13 @@ void UsageFault_Handler(void);
 void SVC_Handler(void);
 void DebugMon_Handler(void);
 void PendSV_Handler(void);
+/* USART1 日志口，DMA1 Channel4 为 TX，Channel5 为 RX。 */
 void DMA1_Channel4_IRQHandler(void);
 void DMA1_Channel5_IRQHandler(void);
+/* 旧接口声明。此工程的屏幕使用 USART3，因此实际中断入口在 Channel2/3。 */
 void DMA1_Channel7_IRQHandler(void);
 void DMA1_Channel6_IRQHandler(void);
+/* 1 ms 时基中断，累计 100 次后置周期任务标志。 */
 void SysTick_Handler(void);
 
 #ifdef __cplusplus

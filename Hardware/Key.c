@@ -23,8 +23,9 @@ void Key_Init(void)
 /**
   * 函    数：按键获取键码
   * 参    数：无
-  * 返 回 值：按下的按键键码值，bit0=Key1, bit1=Key2，可同时返回，0代表没有按键按下
-  * 注意事项：非阻塞式，每调用一次返回当前是否有新的按键事件
+  * 返 回 值：bit0/bit1 为 Key1/Key2 新按下，bit2/bit3 为两键长按，事件可组合。
+  * 注意事项：主循环轮询时使用。原始电平变化后需保持 20 ms 才确认边沿，
+  *           长按从确认按下时起算，每次按住最多上报一次，松开只复位内部状态。
   */
 uint8_t Key_GetNum(void)
 {
@@ -108,5 +109,5 @@ uint8_t Key_GetNum(void)
 		key2_long_done = 1;
 	}
 
-	return KeyNum;			//非阻塞返回：bit0=Key1, bit1=Key2, 可同时返回
+	return KeyNum;			// 本次调用无新事件时返回 0
 }

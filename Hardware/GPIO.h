@@ -1,7 +1,7 @@
 #ifndef __GPIO_H
 #define __GPIO_H
 
-// 引脚定义
+/* 执行器引脚。泵和两个电磁阀在 GPIOA，两个三通阀在 GPIOC。 */
 #define circulation_pump_PIN                        GPIO_Pin_6  //循环泵引脚
 #define water_inlet_solenoid_valve_PIN              GPIO_Pin_7  //进水电磁阀引脚
 #define cleaning_solenoid_valve_PIN                 GPIO_Pin_8  //清洗电磁阀引脚
@@ -18,18 +18,18 @@
 // 初始化函数
 void GPIO_Init_ALL(void);
 
-// 控制函数
+/* 传入 0 将对应输出置低，非零将输出置高。状态标志反映最近写入的电平。 */
 void circulation_pump_Set(uint8_t state);                   // 控制循环泵
 void water_inlet_solenoid_valve_Set(uint8_t state);        // 控制进水电磁阀
 void cleaning_solenoid_valve_Set(uint8_t state);           // 控制清洗电磁阀
 void Circulation_Three_Way_Valve_Set(uint8_t state);      // 控制循环三通阀
 void Liquid_Outlet_Three_Way_Valve_Set(uint8_t state);    // 控制出液三通阀
-void set_all_gpio_low(void);                                // 设置所有GPIO引脚为低电平
+void set_all_gpio_low(void);                                // 关闭本模块的五路执行器输出
 
 // 液位传感器ADC驱动
 void Liquid_Level_ADC_Init(void);                           // 初始化液位传感器ADC
 void Liquid_Level_Update(void);                             // 100ms采样更新缓存
-uint16_t Liquid_Level_Read(void);                           // 读取缓存的原始ADC值(0-4095)
+uint16_t Liquid_Level_Read(void);                           // 返回 0~4095 的最近采样值，调用时不启动转换
 
 #endif
 

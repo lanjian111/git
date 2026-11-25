@@ -6,7 +6,9 @@
 #include "coffemake.h"
 #include "eeprom_cat24c256.h"
 
-// 状态标志定义
+/* 执行器标志由 GPIO 设置函数同步更新，表示软件写出的状态。
+ * 流程标志由屏幕回调或其他状态机置位，推进和清理由各任务负责。
+ */
 volatile uint8_t FLAG_CIRCULATION_PUMP = 0;            //循环泵状态标志
 volatile uint8_t FLAG_WATER_INLET_VALVE = 0;           //进水电磁阀状态标志
 volatile uint8_t FLAG_CLEANING_VALVE = 0;              //清洗电磁阀状态标志
@@ -21,6 +23,10 @@ volatile uint8_t FLAG_COFFEE_START = 0;                // 萃取流程启动标志
 volatile uint8_t FLAG_DRAIN_WASTE = 0;                 // 排废液流程启动标志
 volatile uint8_t FLAG_DRAIN_BREW = 0;                  // 排萃取液流程启动标志
 
+/* 消费 SysTick 置位的单比特标志。多次到期可合并成一次执行，没有补跑机制。
+ * 先更新 ADC 缓存，再依次运行清洗、萃取、排废液和排萃取液，
+ * 因此前面的任务置位排液标志后，后面的排液任务可在这一轮响应。
+ */
 void FLAG_100MS_Execute(void)
 {
     if (FLAG_100MS == 1)

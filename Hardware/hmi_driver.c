@@ -17,13 +17,15 @@
 
 #define LOG_TAG     "hmi"
 
+/* 数字字段按大端写出。大部分厂商接口用 SendChar 逐字节发送并等待 DMA，
+ * ReadRTC 单独组好整帧后一次提交，让主循环可以异步等回包。 */
 #define TX_8(P1) SEND_DATA((P1)&0xFF)                    //发送单个字节
 #define TX_8N(P,N) SendNU8((uint8 *)P,N)                 //发送N个字节
 #define TX_16(P1) TX_8((P1)>>8);TX_8(P1)                 //发送16位整数
 #define TX_16N(P,N) SendNU16((uint16 *)P,N)              //发送N个16位整数
 #define TX_32(P1) TX_16((P1)>>16);TX_16((P1)&0xFFFF)     //发送32位整数
 
-// 由USART2(USART3外设)接收回调置位，提示主循环有新串口数据待解析。
+/* USART3 RX DMA 回调提供处理提示。短帧通常达不到回调触发条件，主循环还会轮询 DMA 写位置。 */
 static volatile uint8 g_hmi_rx_pending = 0;
 
 static void HMI_RxCallback(uint8_t *data, uint16_t length)
@@ -41,7 +43,7 @@ void HMI_LinkInit(void)
     queue_reset();
     USART2_DMA_ClearRxBuffer();
 
-    // 将USART2(USART3)接收事件绑定到HMI回调。
+    // 将 USART3 RX DMA 整圈回调绑定到 HMI 处理提示。
     USART2_DMA_SetRxCallback(HMI_RxCallback);
 
     // 清除待处理标志，保证初始化完成后从干净状态进入主循环。
@@ -50,6 +52,7 @@ void HMI_LinkInit(void)
 
 void HMI_LinkTask(void)
 {
+    /* 主循环每次处理一帧时复用同一块缓冲区，使用静态存储可节省调用栈空间。 */
     static uint8 cmd_buf[CMD_MAX_SIZE];
     qsize cmd_len = 0;
 
@@ -62,18 +65,17 @@ void HMI_LinkTask(void)
     // 本轮开始处理，先清标志；若处理期间又收到新数据，回调会再次置位。
     g_hmi_rx_pending = 0;
 
-    // 将DMA环形缓冲区内的数据逐字节转存到协议队列。
-    // 这样做可以复用厂家队列的帧头/帧尾状态机，减少协议层改动。
+    /* 先搬入软件队列，再寻找帧头和帧尾。队列容量为 127 字节，单次输入
+     * 过多时 queue_push 会丢弃后续字节。组帧进度和 cmd_buf 均保留到下一轮。 */
     while (USART2_DMA_Available() > 0U)
     {
         queue_push((qdata)USART2_DMA_ReadByte());
     }
 
-    // 从队列中持续提取完整帧，并交给消息分发层处理。
-    // 使用while而不是if，确保一个周期内可清空多帧积压。
+    // 依次分发取到的帧。ProcessMessage 可就地改写 cmd_buf，因此先记录原始字节。
     while ((cmd_len = queue_find_cmd(cmd_buf, CMD_MAX_SIZE)) > 0U)
     {
-        // 调试模式（长按Key1 2秒切换）下，将屏幕发来的完整帧以hex格式输出
+        // 调试标志开启时准备十六进制帧文本，实际输出还受 EasyLogger 级别与格式配置约束。
         if (FLAG_DEBUG_MODE)
         {
             char hex_buf[CMD_MAX_SIZE * 3 + 20];
@@ -94,8 +96,8 @@ static uint16 _crc16 = 0xffff;
 /*!
 *  \brief 添加CRC16校验
 *  \param buffer 待校验的数据
-*  \param n 数据长度，包含CRC16
-*  \param pcrc 校验码
+*  \param n 本次参与计算的字节数
+*  \param pcrc CRC 累积值，开始新帧时初始化为 0xFFFF
 */
 static void AddCRC16(uint8 *buffer,uint16 n,uint16 *pcrc)
 {
@@ -168,8 +170,8 @@ void END_CMD()
 
 #endif
 /*!
-*  \brief  延时
-*  \param  n 延时时间(毫秒单位)
+*  \brief  厂商接口保留的空循环延时，占用 CPU，耗时依赖编译优化和主频。
+*  \param  n 外层循环次数
 */
 void DelayMS(unsigned int n)
 {
@@ -178,8 +180,8 @@ void DelayMS(unsigned int n)
         for(j=1000;j>0;j--) ;
 }
 /*!
-*  \brief  串口发送送字符串
-*  \param  字符串
+*  \brief  逐字节发送字符串，遇到 NUL 结束。
+*  \param  str 指向以 NUL 结尾的字节串
 */
 void SendStrings(uchar *str)
 {
@@ -190,8 +192,9 @@ void SendStrings(uchar *str)
     }
 }
 /*!
-*  \brief  串口发送送N个字节
-*  \param  个数
+*  \brief  按指定长度逐字节发送，支持数据中含 0x00。
+*  \param  pData 数据首地址
+*  \param  nDataLen 字节数
 */
 void SendNU8(uint8 *pData,uint16 nDataLen)
 {
@@ -202,8 +205,9 @@ void SendNU8(uint8 *pData,uint16 nDataLen)
     }
 }
 /*!
-*  \brief  串口发送送N个16位的数据
-*  \param  个数
+*  \brief  发送数组中的 16 位整数，每个元素高字节在前。
+*  \param  pData 数组首地址
+*  \param  nDataLen 元素数
 */
 void SendNU16(uint16 *pData,uint16 nDataLen)
 {
@@ -246,8 +250,10 @@ void SetBcolor(uint16 color)
     END_CMD();
 }
 /*!
-*  \brief 获取
-*  \param  color 背景色
+*  \brief  发送取色命令 0xA3。
+*  \param  mode 原样发送的取色模式
+*  \param  x 取色位置 X 坐标
+*  \param  y 取色位置 Y 坐标
 */
 void ColorPicker(uint8 mode, uint16 x,uint16 y)
 {
@@ -310,10 +316,10 @@ void SetFilterColor(uint16 fillcolor_dwon, uint16 fillcolor_up)
 }
 
 /*!
-*  \brief  设置过滤色
+*  \brief  在指定坐标绘制文本，内容发送到首个 NUL 为止。
 *  \param  x 位置X坐标
 *  \param  y 位置Y坐标
-*  \param  back 颜色上界
+*  \param  back 背景绘制参数，按一个字节发送
 *  \param  font 字体
 *  \param  strings 字符串内容
 */
@@ -558,8 +564,8 @@ void GUI_BcolorConDots(uint16 *dot,uint16 dot_cnt)
 }
 /*!
 *  \brief     画空心圆
-*  \param  x0 圆心位置X坐标
-*  \param  y0 圆心位置Y坐标
+*  \param  x 圆心 X 坐标
+*  \param  y 圆心 Y 坐标
 *  \param  r 半径
 */
 void GUI_Circle(uint16 x, uint16 y, uint16 r)
@@ -573,8 +579,8 @@ void GUI_Circle(uint16 x, uint16 y, uint16 r)
 }
 /*!
 *  \brief      画实心圆
-*  \param  x0 圆心位置X坐标
-*  \param  y0 圆心位置Y坐标
+*  \param  x 圆心 X 坐标
+*  \param  y 圆心 Y 坐标
 *  \param  r 半径
 */
 void GUI_CircleFill(uint16 x, uint16 y, uint16 r)
@@ -588,8 +594,8 @@ void GUI_CircleFill(uint16 x, uint16 y, uint16 r)
 }
 /*!
 *  \brief      画弧线
-*  \param  x0 圆心位置X坐标
-*  \param  y0 圆心位置Y坐标
+*  \param  x 圆心 X 坐标
+*  \param  y 圆心 Y 坐标
 *  \param  r 半径
 *  \param  sa 起始角度
 *  \param  ea 终止角度
@@ -674,11 +680,8 @@ void GUI_EllipseFill(uint16 x0, uint16 y0, uint16 x1,uint16 y1 )
     END_CMD();
 }
 /*!
-*  \brief      画线
-*  \param  x0 起始位置X坐标
-*  \param  y0 起始位置Y坐标
-*  \param  x1 结束位置X坐标
-*  \param  y1 结束位置Y坐标
+*  \brief      发送屏幕背光亮度设置指令 0x60。
+*  \param  light_level 单字节亮度参数，原样发送
 */
 void SetBackLight(uint8 light_level)
 {
@@ -690,7 +693,7 @@ void SetBackLight(uint8 light_level)
 
 /*!
 *  \brief   蜂鸣器设置
-*  \time  time 持续时间(毫秒单位)
+*  \param  time 发送给屏幕的单字节蜂鸣持续时间参数
 */
 void SetBuzzer(uint8 time)
 {
@@ -700,6 +703,7 @@ void SetBuzzer(uint8 time)
     END_CMD();
 }
 
+/* 发送命令 0x65，参数为矩形的两组角坐标，按大端排列。 */
 void GUI_AreaInycolor(uint16 x0, uint16 y0, uint16 x1,uint16 y1 )
 {
     BEGIN_CMD();
@@ -712,7 +716,7 @@ void GUI_AreaInycolor(uint16 x0, uint16 y0, uint16 x1,uint16 y1 )
 }
 /*!
 *  \brief   触摸屏设置
-*  \param enable 触摸使能
+*  \param enbale 触摸使能（参数名沿用兼容接口）
 *  \param beep_on 触摸蜂鸣器
 *  \param work_mode 触摸工作模式：0按下就上传，1松开才上传，2不断上传坐标值，3按下和松开均上传数据
 *  \param press_calibration 连续点击触摸屏20下校准触摸屏：0禁用，1启用
@@ -980,7 +984,7 @@ void SetControlEnable(uint16 screen_id,uint16 control_id,uint8 enable)
 *  \brief     设置按钮状态
 *  \param  screen_id 画面ID
 *  \param  control_id 控件ID
-*  \param  value 按钮状态
+*  \param  state 单字节按钮状态
 */
 void SetButtonValue(uint16 screen_id,uint16 control_id,uchar state)
 {
@@ -1339,7 +1343,7 @@ void GraphSetViewport(uint16 screen_id,uint16 control_id,int16 x_offset,uint16 x
     END_CMD();
 }
 /*!
-*  \brief     开始批量更新
+*  \brief     发送批量更新帧的开头。接着调用 BatchSet 系列追加控件，最后用 BatchEnd 发帧尾。
 *  \param  screen_id 画面ID
 */
 void BatchBegin(uint16 screen_id)
@@ -1352,7 +1356,7 @@ void BatchBegin(uint16 screen_id)
 /*!
 *  \brief     批量更新按钮控件
 *  \param  control_id 控件ID
-*  \param  value 数值
+*  \param  state 按钮状态，写入当前批量更新帧
 */
 void BatchSetButtonValue(uint16 control_id,uint8 state)
 {
@@ -1395,7 +1399,9 @@ void BatchSetMeterValue(uint16 control_id,uint32 value)
     TX_32(value);
 }
 /*!
-*  \brief      计算字符串长度
+*  \brief  计算字节长度，扫描到第一个 NUL 结束。
+*  \param  str 指向有效的 NUL 结尾字符串
+*  \return 不含 NUL 的字节数
 */
 uint32 GetStringLen(uchar *str)
 {
@@ -2045,10 +2051,12 @@ void Record_GetCount(uint16 screen_id,uint16 control_id)
     END_CMD();
 }
 /*!
-*  \brief     读取屏幕RTC时间
+*  \brief     向屏幕提交 0x82 读时命令，响应由 HMI 接收任务处理。
+*  \return 1 表示已提交给 DMA，0 表示本轮未提交。
 */
 uint8 ReadRTC(void)
 {
+    /* 屏幕读时指令为 0x82，只有命令字。CRC 打开时预留两字节，最后拼接屏幕帧尾。 */
     uint8 frame[] = {
         0xEE, 0x82,
 #if(CRC16_ENABLE)
@@ -2057,18 +2065,21 @@ uint8 ReadRTC(void)
         0xFF, 0xFC, 0xFF, 0xFF
     };
 
+    /* 屏幕串口正发送其它数据时立即返回，让 RTC 任务下一轮再试。 */
     if (USART2_DMA_IsTxBusy())
         return 0U;
 
 #if(CRC16_ENABLE)
     {
         uint16 crc = 0xFFFF;
+        /* 此帧没有参数，因此 CRC 只覆盖命令字，并按高字节在前写入。 */
         AddCRC16(frame + 1, 1, &crc);
         frame[2] = (uint8)(crc >> 8);
         frame[3] = (uint8)crc;
     }
 #endif
 
+    /* DMA 发送函数会把局部帧复制到驱动自己的缓冲区。返回 1 后才开始等屏幕回包。 */
     return USART2_DMA_SendData(frame, sizeof(frame)) == USART_DMA_OK;
 }
 
@@ -2094,7 +2105,8 @@ void WriteRTC(uint8 *rtc_data)
 
 /*!
 *  \brief   播放音乐
-*  \param   buffer 十六进制的音乐路径及名字
+*  \param   buffer 已编码的 19 字节命令内容，调用方提供完整缓冲。
+*           空指针时只发送帧头与帧尾。
 */
 void PlayMusic(uint8 *buffer)
 {

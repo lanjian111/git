@@ -5,10 +5,12 @@
 #include "elog.h"
 #include <string.h>
 
+/* HMI 分发运行在主循环。页面和控件决定动作，回调只更新参数或置流程标志，
+ * 阀泵和液位控制由 100 ms 任务推进。屏幕 RTC 的通知走独立帧格式。 */
 #define LOG_TAG     "cmd"
 
 #define SCREEN_ID_WASH                     0x0002U
-#define SCREEN_ID_COFFEE                   0x0004U   /* 萃取页 = 4 (之前错了) */
+#define SCREEN_ID_COFFEE                   0x0004U   /* 当前按钮、文本和选择器分发使用的萃取页 ID。 */
 #define CTRL_ID_WASH_START                0x0001U
 #define BUTTON_STATE_RELEASE              0x00U
 #define BUTTON_STATE_PRESS                0x01U
@@ -50,6 +52,7 @@ static void HandleWashScreenButton(uint16 control_id, uint8 state)    // 清洗�
 
 static void HandleCoffeeScreenButton(uint16 control_id, uint8 state)
 {
+    /* 三个流程按钮共用一次按下记录。记录只保存是否按下，未保存产生按下的控件 ID。 */
     static uint8 coffee_start_button_pressed = 0U;
 
     switch (control_id)
@@ -118,26 +121,28 @@ static void HandleCoffeeScreenButton(uint16 control_id, uint8 state)
  * 7) cmd_tail      : 4字节
  * 合计：12字节
  */
-// 固定帧结构长度：帧头(1) + 类型(1) + 子消息(1) + screen_id(2)
-// + control_id(2) + control_type(1) + 帧尾(4) = 12字节。
 #define HMI_FRAME_FIXED_LEN 12U                            //固定帧长度（字节数）
 
 void ProcessMessage(PCTRL_MSG msg, uint16 size)            // 处理从串口接收的完整消息帧
 {
     const uint8 *frame = (const uint8 *)msg;
     uint16 param_len = 0;
-    /* Custom notification sent by the screen after a local RTC save. */
+    /* 屏幕本地保存 RTC 后，只发自定义通知，主板收到后再主动读回实际时间。 */
     static const uint8 rtc_changed[] = {0xEE, 0xF0, 'R', 'T', 'C', 0x01};
 
     if (frame == 0)
         return;
 
-    /* EE F7 YY MM WK DD HH MM SS FF FC FF FF */
+    /* 读时回包按原始字节处理。它先于通用控件帧分发，因为帧内没有控件 ID。
+     * EE F7 YY MM WK DD HH MM SS FF FC FF FF，时间字段从偏移 2 开始，共 7 字节。
+     * 上层队列负责按帧头和帧尾提取完整帧，这里按总长度和命令识别类型。
+     */
     if (size == 13U && frame[0] == 0xEEU && frame[1] == NOTIFY_READ_RTC)
     {
         RTC_Screen_OnRead(frame + 2);
         return;
     }
+    /* 通知的固定内容之外还有 4 字节帧尾。长度吻合后再比较，避免将其它 F0 帧当成保存通知。 */
     if (size == sizeof(rtc_changed) + 4U &&
         memcmp(frame, rtc_changed, sizeof(rtc_changed)) == 0)
     {
@@ -145,6 +150,9 @@ void ProcessMessage(PCTRL_MSG msg, uint16 size)            // 处理从串口接
         return;
     }
 
+    /* EE B1 01 + 2 字节大端页面 ID + 4 字节帧尾，共 9 字节。
+     * 此分支实际只检查最小长度和 ctrl_msg。0x01 也用于触摸按下，满足条件的帧会优先进入此分支。
+     */
     if ((msg != 0) && (size >= 9U) && (msg->ctrl_msg == MSG_GET_CURRENT_SCREEN))
     {
         msg->screen_id  = PTR2U16((uint8 *)&msg->screen_id);
@@ -152,17 +160,15 @@ void ProcessMessage(PCTRL_MSG msg, uint16 size)            // 处理从串口接
         return;
     }
 
-    if (size < HMI_FRAME_FIXED_LEN)        // 为什么要这么写：先过滤空指针和短帧，避免后面访问越界
+    if (size < HMI_FRAME_FIXED_LEN)        // 通用消息至少需要固定字段和帧尾
     {
         return;
     }
 
-    // param_len表示可变参数区字节数，用于后续每类消息的长度校验。
-    // 注意: NOTIFY_READ_RTC(0xF7) 帧不包含 screen_id/control_id/control_type,
-    //       其结构为: EE F7 [7字节RTC数据] FF FC FF FF, msg结构体映射仅对控件消息有效
+    /* 固定字段之后为有效参数。数字类回调按各自的最小参数长度检查后再读取。 */
     param_len = (uint16)(size - HMI_FRAME_FIXED_LEN);
 
-    /* MSG_GET_CURRENT_SCREEN 的字节序已在前置特判中处理, 此处不再重复 */
+    /* 0x01 已由前面的页面号通知分支优先处理，这里再排除该值。 */
     if (msg->ctrl_msg == MSG_GET_CURRENT_SCREEN)
     {
         return;
@@ -179,129 +185,125 @@ void ProcessMessage(PCTRL_MSG msg, uint16 size)            // 处理从串口接
      *
      * 这样做的好处是：协议扩展时只需新增case，不影响现有业务回调接口。
      */
-    switch (msg->ctrl_msg)                                 // 为什么要这么写：先按消息大类分发，结构清晰且易扩展
+    switch (msg->ctrl_msg)
     {
     case NOTIFY_TOUCH_PRESS:
     case NOTIFY_TOUCH_RELEASE:
         // 触摸坐标通知：param格式为X(2字节)+Y(2字节)。
         // press值沿用ctrl_msg：0x01按下，0x03松开。
-        if (param_len >= 4U)                               // 为什么要这么写：触摸坐标最少需要X(2)+Y(2)
+        if (param_len >= 4U)
         {
-            NotifyTouchXY(msg->ctrl_msg, PTR2U16(msg->param), PTR2U16(msg->param + 2)); // 为什么要这么写：按协议从param拆出X/Y
+            NotifyTouchXY(msg->ctrl_msg, PTR2U16(msg->param), PTR2U16(msg->param + 2));
         }
-        break;                                              // 为什么要这么写：触摸消息处理完成后退出一级分发
+        break;
 
     case NOTIFY_CONTROL:                                    // 控件消息通知
     case MSG_GET_DATA:                                      // 控件数据通知
-        switch (msg->control_type)                         // 为什么要这么写：控件消息再按控件类型二级分发
+        switch (msg->control_type)
         {
         case kCtrlButton:
             // 按钮状态：param[1]，0=弹起，1=按下（大彩屏按钮上报格式：param[0]=触摸状态, param[1]=按钮状态）
-            if (param_len >= 2U)                           // 为什么要这么写：按钮状态需要2字节(param[0]+param[1])
+            if (param_len >= 2U)
             {
-                NotifyButton(msg->screen_id, msg->control_id, msg->param[1]); // 为什么要这么写：param[1]才是按钮真实状态
+                NotifyButton(msg->screen_id, msg->control_id, msg->param[1]);
             }
-            break;                                          // 为什么要这么写：当前控件类型已处理完毕
+            break;
 
         case kCtrlText:
-            // 文本内容：param起始地址为字符串首地址（通常以\0结束）。
-            NotifyText(msg->screen_id, msg->control_id, msg->param); // 为什么要这么写：文本是变长数据，直接传首地址最灵活
-            break;                                          // 为什么要这么写：文本分支结束
+            /* 文本回调依赖发送方提供 NUL 结尾的参数。此分支直接传递指针，未核对终止符。 */
+            NotifyText(msg->screen_id, msg->control_id, msg->param);
+            break;
 
         case kCtrlProgress:
             // 进度条数值：4字节无符号整型（大端序）。
-            if (param_len >= 4U)                           // 为什么要这么写：uint32数值必须保证4字节可读
+            if (param_len >= 4U)
             {
-                NotifyProgress(msg->screen_id, msg->control_id, PTR2U32(msg->param)); // 为什么要这么写：用统一宏做大端转本地整数
+                NotifyProgress(msg->screen_id, msg->control_id, PTR2U32(msg->param));
             }
-            break;                                          // 为什么要这么写：进度条分支结束
+            break;
 
         case kCtrlSlider:
             // 滑动条数值：4字节无符号整型（大端序）。
-            if (param_len >= 4U)                           // 为什么要这么写：防止参数不足时读取越界
+            if (param_len >= 4U)
             {
-                NotifySlider(msg->screen_id, msg->control_id, PTR2U32(msg->param)); // 为什么要这么写：滑动条协议值同样是4字节整型
+                NotifySlider(msg->screen_id, msg->control_id, PTR2U32(msg->param));
             }
-            break;                                          // 为什么要这么写：滑动条分支结束
+            break;
 
         case kCtrlMeter:
             // 仪表数值：4字节无符号整型（大端序）。
-            if (param_len >= 4U)                           // 为什么要这么写：保证读取完整数值
+            if (param_len >= 4U)
             {
-                NotifyMeter(msg->screen_id, msg->control_id, PTR2U32(msg->param)); // 为什么要这么写：仪表值直接转交业务层处理
+                NotifyMeter(msg->screen_id, msg->control_id, PTR2U32(msg->param));
             }
-            break;                                          // 为什么要这么写：仪表分支结束
+            break;
 
         case kCtrlMenu:
             // 菜单事件：param[0]=item索引，param[1]=状态（0松开，1按下）。
-            if (param_len >= 2U)                           // 为什么要这么写：菜单至少需要item和state两个字节
+            if (param_len >= 2U)
             {
-                NotifyMenu(msg->screen_id, msg->control_id, msg->param[0], msg->param[1]); // 为什么要这么写：菜单逻辑需要索引和状态同时判断
+                NotifyMenu(msg->screen_id, msg->control_id, msg->param[0], msg->param[1]);
             }
-            break;                                          // 为什么要这么写：菜单分支结束
+            break;
 
         case kCtrlSelector:
             // 选择控件：param[0]=当前选项索引。
-            if (param_len >= 1U)                           // 为什么要这么写：选择控件值只需1字节
+            if (param_len >= 1U)
             {
-                NotifySelector(msg->screen_id, msg->control_id, msg->param[0]); // 为什么要这么写：把选项索引传给业务逻辑
+                NotifySelector(msg->screen_id, msg->control_id, msg->param[0]);
             }
-            break;                                          // 为什么要这么写：选择控件分支结束
+            break;
 
         default:
             // 未使用控件类型：当前版本忽略，保留向前兼容。
-            break;                                          // 为什么要这么写：未知控件不处理，避免误动作
+            break;
         }
-        break;                                              // 为什么要这么写：控件消息处理完成，退出一级分发
+        break;
 
     case NOTIFY_TIMER:
         // 定时器控件超时通知：依赖screen_id与control_id定位具体定时器。
-        NotifyTimer(msg->screen_id, msg->control_id);      // 为什么要这么写：把超时事件转给业务层决定动作
-        break;                                              // 为什么要这么写：定时器分支结束
+        NotifyTimer(msg->screen_id, msg->control_id);
+        break;
   
     case NOTIFY_MENU:
         // 某些屏版本会以单独消息上报菜单事件，处理逻辑与kCtrlMenu一致。
-        if (param_len >= 2U)                               // 为什么要这么写：同样要保证item/state都有值
+        if (param_len >= 2U)
         {
-            NotifyMenu(msg->screen_id, msg->control_id, msg->param[0], msg->param[1]); // 为什么要这么写：复用统一菜单通知接口
+            NotifyMenu(msg->screen_id, msg->control_id, msg->param[0], msg->param[1]);
         }
-        break;                                              // 为什么要这么写：菜单独立通知分支结束
+        break;
 
     case NOTIFY_READ_FLASH_OK:
         // 读用户FLASH成功，返回数据位于param区，长度为param_len。
-        NotifyReadFlash(1U, msg->param, param_len);        // 为什么要这么写：用status=1显式区分成功路径
-        break;                                              // 为什么要这么写：读FLASH成功分支结束
+        NotifyReadFlash(1U, msg->param, param_len);
+        break;
 
     case NOTIFY_READ_FLASH_FAILD:
         // 读用户FLASH失败，通常不携带有效数据，仍透传status给业务层。
-        NotifyReadFlash(0U, msg->param, param_len);        // 为什么要这么写：失败也走同一接口，业务层更好统一处理
-        break;                                              // 为什么要这么写：读FLASH失败分支结束
+        NotifyReadFlash(0U, msg->param, param_len);
+        break;
 
     case NOTIFY_WRITE_FLASH_OK:
         // 写用户FLASH成功。
-        NotifyWriteFlash(1U);                              // 为什么要这么写：成功状态单独上报，便于提示用户
-        break;                                              // 为什么要这么写：写FLASH成功分支结束
+        NotifyWriteFlash(1U);
+        break;
 
     case NOTIFY_WRITE_FLASH_FAILD:
         // 写用户FLASH失败。
-        NotifyWriteFlash(0U);                              // 为什么要这么写：失败状态必须可观测，便于重试策略
-        break;                                              // 为什么要这么写：写FLASH失败分支结束
+        NotifyWriteFlash(0U);
+        break;
 
     default:
         // 未识别消息：默认忽略，避免因新协议字段导致旧固件异常。
-        break;                                              // 为什么要这么写：未知消息不处理，保持系统健壮
+        break;
     }
 }
 
 /*
- * 以下Notify函数是“业务对接层”的标准入口。
- * 当前给出空实现（仅抑制未使用参数告警），你可按项目需求填入控制逻辑。
- *
- * 推荐实践：
- * 1) 在NotifyButton里按screen_id + control_id做按钮路由。
- * 2) 在NotifyText里把字符串转成参数并做范围检查。
- * 3) 复杂动作只置标志位，在主任务中执行，避免回调里阻塞。
+ * NotifyButton、NotifyText 和 NotifySelector 已接入清洗、萃取或排液业务。
+ * NotifyScreen 只记录日志。其余协议回调当前保留为空实现。
  */
+/* 切页只记录调试日志。校时由主循环管理，屏幕保存时间后通过通知触发重读。 */
 void NotifyScreen(uint16 screen_id)
 {
     log_d("screen changed to %u", screen_id);
@@ -309,10 +311,10 @@ void NotifyScreen(uint16 screen_id)
 }
 void NotifyTouchXY(uint8 press, uint16 x, uint16 y)         // 触摸坐标事件响应
 {
-    // 建议：根据press区分按下/松开，结合坐标做调试或手势逻辑。
-    (void)press;                                            // 为什么要这么写：占位实现，后续按需接入触摸业务
-    (void)x;                                                // 为什么要这么写：占位实现，避免编译器告警
-    (void)y;                                                // 为什么要这么写：占位实现，避免编译器告警
+    /* 触摸坐标保留为协议回调。当前固件从控件通知驱动业务。 */
+    (void)press;
+    (void)x;
+    (void)y;
 }
 
 void NotifyButton(uint16 screen_id, uint16 control_id, uint8 state)
@@ -327,14 +329,14 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8 state)
         HandleCoffeeScreenButton(control_id, state);       // 萃取页面的按钮统一在专用函数里处理
         return;
 
-    /* 时间设置页 —— 确定按钮 (screen_id=0x000B, control_id=0x0007) */
+    /* 时间设置由屏幕本地处理。主板通过 RTC 保存通知同步，普通按钮信息走默认分支。 */
     default:
         break;                                             // 其它页面按钮暂未绑定业务，后续可继续新增页面处理函数
     }
 
-    (void)screen_id;                                        // 为什么要这么写：当前未绑定其它页面按钮业务，先保留接口
-    (void)control_id;                                       // 为什么要这么写：当前未绑定其它页面按钮业务，先保留接口
-    (void)state;                                            // 为什么要这么写：当前未绑定其它页面按钮业务，先保留接口
+    (void)screen_id;
+    (void)control_id;
+    (void)state;
 }
 
 void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
@@ -349,43 +351,42 @@ void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str)
         break;
     }
 
-    // 建议：把str解析为数值或命令前先做长度与格式检查。
-    (void)screen_id;                                        // 为什么要这么写：占位接口，业务后续填写
-    (void)control_id;                                       // 为什么要这么写：占位接口，业务后续填写
-    (void)str;                                              // 为什么要这么写：占位接口，业务后续填写
+    (void)screen_id;
+    (void)control_id;
+    (void)str;
 }
 
 void NotifyProgress(uint16 screen_id, uint16 control_id, uint32 value)
 {
-    // 建议：若需要双向联动，可在这里把屏侧进度同步到本地变量。
-    (void)screen_id;                                        // 为什么要这么写：暂未使用参数，保留函数结构
-    (void)control_id;                                       // 为什么要这么写：暂未使用参数，保留函数结构
-    (void)value;                                            // 为什么要这么写：暂未使用参数，保留函数结构
+    /* 当前未绑定进度条业务。 */
+    (void)screen_id;
+    (void)control_id;
+    (void)value;
 }
 
 void NotifySlider(uint16 screen_id, uint16 control_id, uint32 value)
 {
-    // 建议：用于参数调节场景时，增加上下限钳制和生效条件。
-    (void)screen_id;                                        // 为什么要这么写：暂未使用参数，避免警告
-    (void)control_id;                                       // 为什么要这么写：暂未使用参数，避免警告
-    (void)value;                                            // 为什么要这么写：暂未使用参数，避免警告
+    /* 当前未绑定滑动条业务。 */
+    (void)screen_id;
+    (void)control_id;
+    (void)value;
 }
 
 void NotifyMeter(uint16 screen_id, uint16 control_id, uint32 value)
 {
-    // 建议：通常用于显示回读，必要时可用于闭环校验。
-    (void)screen_id;                                        // 为什么要这么写：暂未接业务，先保持模板接口
-    (void)control_id;                                       // 为什么要这么写：暂未接业务，先保持模板接口
-    (void)value;                                            // 为什么要这么写：暂未接业务，先保持模板接口
+    /* 当前未绑定仪表业务。 */
+    (void)screen_id;
+    (void)control_id;
+    (void)value;
 }
 
 void NotifyMenu(uint16 screen_id, uint16 control_id, uint8 item, uint8 state)
 {
-    // 建议：item用于区分菜单项，state用于区分按下/松开动作。
-    (void)screen_id;                                        // 为什么要这么写：模板阶段先抑制未用参数
-    (void)control_id;                                       // 为什么要这么写：模板阶段先抑制未用参数
-    (void)item;                                             // 为什么要这么写：模板阶段先抑制未用参数
-    (void)state;                                            // 为什么要这么写：模板阶段先抑制未用参数
+    /* 当前未绑定菜单业务。 */
+    (void)screen_id;
+    (void)control_id;
+    (void)item;
+    (void)state;
 }
 
 void NotifySelector(uint16 screen_id, uint16 control_id, uint8 item)
@@ -403,29 +404,27 @@ void NotifySelector(uint16 screen_id, uint16 control_id, uint8 item)
         break;
     }
 
-    // 建议：选择框变化时，可在此切换本地配置档位。
-    (void)screen_id;                                        // 为什么要这么写：占位接口，后续按业务填充
-    (void)control_id;                                       // 为什么要这么写：占位接口，后续按业务填充
-    (void)item;                                             // 为什么要这么写：占位接口，后续按业务填充
+    (void)screen_id;
+    (void)control_id;
+    (void)item;
 }
 
 void NotifyTimer(uint16 screen_id, uint16 control_id)
 {
-    // 建议：仅置位业务标志，由主循环处理耗时任务。
-    (void)screen_id;                                        // 为什么要这么写：当前未接定时器业务，先保持编译通过
-    (void)control_id;                                       // 为什么要这么写：当前未接定时器业务，先保持编译通过
+    /* 当前未绑定屏幕定时器业务。 */
+    (void)screen_id;
+    (void)control_id;
 }
 
 void NotifyReadFlash(uint8 status, uint8 *_data, uint16 length)
 {
-    // 建议：status=1时解析_data，status=0时做重试或错误上报。
-    (void)status;                                           // 为什么要这么写：模板阶段先保留状态参数
-    (void)_data;                                            // 为什么要这么写：模板阶段先保留数据指针
-    (void)length;                                           // 为什么要这么写：模板阶段先保留长度参数
+    /* 屏幕用户 FLASH 回调当前为占位，与主板上的 CAT24C256 驱动独立。 */
+    (void)status;
+    (void)_data;
+    (void)length;
 }
 
 void NotifyWriteFlash(uint8 status)
 {
-    // 建议：根据status提示保存成功/失败，并决定是否重发。
-    (void)status;                                           // 为什么要这么写：当前仅保留接口，待业务实现
+    (void)status;
 }

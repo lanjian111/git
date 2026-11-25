@@ -4,7 +4,7 @@
 #include "sys.h"
 
 /*==========================================================================
- * CAT24C256 EEPROM 驱动 (32KB, I?C, 64字节/页)
+ * CAT24C256 EEPROM 驱动 (32KB, I2C, 64字节/页)
  *
  * 硬件连接:
  *   SCL → PB8,  SDA → PB9
@@ -12,14 +12,13 @@
  *   WP → GND (始终允许写入)
  *
  * 设计说明:
- *   - 读取接口 (ReadByte/ReadBuffer): 同步阻塞，~15ms 读 256 字节
- *   - 写入接口 (WriteByte/WritePage/WriteBuffer): 异步非阻塞，状态机推进
- *   - EEPROM_Task(): 每 100ms 调用一次，驱动写入状态机
- *   - 5ms EEPROM 内部写入周期使用 delay_expired() 非阻塞等待
+ *   - 读取接口同步执行软件 I2C，写接口先同步发送第一页，后续页由任务发送。
+ *   - EEPROM_Task 由主循环的 100 ms 周期任务调用。每页至少等待 5 ms 再推进，
+ *     实际推进取决于调度。DONE 和 NACK 都需要调用方清状态。
  *==========================================================================*/
 
 /* --- 设备参数 --- */
-#define CAT24C256_ADDR          0x50U       /* 7位设备地址 (1010 0000)                */
+#define CAT24C256_ADDR          0x50U       /* 7 位地址 0x50。线上地址字节为写 0xA0、读 0xA1。 */
 #define CAT24C256_PAGE_SIZE     64U         /* 页大小: 64 字节                        */
 #define CAT24C256_CAPACITY      32768U      /* 总容量: 32768 字节 (32KB)              */
 #define CAT24C256_ADDR_MASK     0x7FFFU     /* 15位地址掩码                           */
@@ -28,26 +27,27 @@
 /* --- 状态机状态 --- */
 typedef enum {
     EEPROM_STATE_IDLE       = 0,    /* 空闲，可以发起新操作                          */
-    EEPROM_STATE_SEND_PAGE  = 1,    /* 正在发送一页数据到 EEPROM                     */
+    EEPROM_STATE_SEND_PAGE  = 1,    /* 页数据已发送，下次任务调用时开始计时。 */
     EEPROM_STATE_WAIT_WRITE = 2,    /* 等待 EEPROM 内部写入完成 (5ms)                */
     EEPROM_STATE_DONE       = 3,    /* 操作已完成                                    */
-    EEPROM_STATE_NACK       = 4     /* I?C 无应答，设备异常                          */
+    EEPROM_STATE_NACK       = 4     /* I2C 无应答，设备异常                          */
 } EEPROM_State_t;
 
 /* --- 操作结果 --- */
 typedef enum {
-    EEPROM_OK       = 0,    /* 操作已接受 (异步操作已入队)                          */
-    EEPROM_BUSY     = 1,    /* 驱动器忙，上次操作尚未完成                          */
+    EEPROM_OK       = 0,    /* 参数已接受且尝试发送第一页，实际结果用 GetState 查询。 */
+    EEPROM_BUSY     = 1,    /* 驱动处于非 IDLE，包括未清除的 DONE/NACK。 */
     EEPROM_ERROR    = 2     /* 参数错误 (地址越界/长度为零)                        */
 } EEPROM_Result_t;
 
 /*==========================================================================
  * 初始化
  *==========================================================================*/
-void EEPROM_Init(void);                                 /* 初始化 I?C 底层和状态机     */
+void EEPROM_Init(void);                                 /* 初始化 I2C 底层和状态机     */
 
 /*==========================================================================
- * 同步读取接口 (阻塞式，无 5ms 等待，直接返回)
+ * 同步读取。起始地址按 0x7FFF 掩码。ReadByte 遇到 NACK 返回 0xFF，
+ * ReadBuffer 此时不写输出。用 EEPROM_ReadHadNack 区分。len 为 0 时保留上次标志。
  *==========================================================================*/
 uint8_t  EEPROM_ReadByte(uint16_t addr);                /* 读取单字节                  */
 void     EEPROM_ReadBuffer(uint16_t addr,
@@ -55,7 +55,8 @@ void     EEPROM_ReadBuffer(uint16_t addr,
                            uint16_t len);               /* 连续读取 len 字节到 buf     */
 
 /*==========================================================================
- * 异步写入接口 (立即返回，由 EEPROM_Task 后台完成)
+ * 写入接口先同步发送第一页，写周期等待和后续页由 EEPROM_Task 推进。
+ * 跨页写入期间保留源缓冲区。只有 IDLE 接收新写入请求。
  *==========================================================================*/
 EEPROM_Result_t EEPROM_WriteByte(uint16_t addr,
                                   uint8_t data);        /* 异步写入单字节              */

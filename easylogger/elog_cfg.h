@@ -18,7 +18,7 @@
 #define ELOG_ASSERT_ENABLE
 
 /*---------------------------------------------------------------------------*/
-/* buffer size for every line's log */
+/* 普通日志行的格式化缓冲区，含前缀和行尾占用。长 HMI 十六进制日志可能被截断。 */
 #define ELOG_LINE_BUF_SIZE           128
 
 /* output line number max length (0 = disable line number) */
@@ -38,7 +38,8 @@
 #define ELOG_NEWLINE_SIGN            "\r\n"
 
 /*---------------------------------------------------------------------------*/
-/* enable asynchronous output mode */
+/* 以下异步日志队列配置为兼容保留。当前 elog.c 直接调用输出端口，
+ * USART1 DMA 负责后台发送已提交的数据。 */
 #define ELOG_ASYNC_OUTPUT_ENABLE
 
 /* async output buffer size */

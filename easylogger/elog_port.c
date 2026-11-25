@@ -11,7 +11,7 @@
 #include <string.h>
 #include "stm32f10x.h"
 
-/* external: USART1 DMA send (defined in USARTDMA.c) */
+/* 底层发送接口位于 USARTDMA.c，输出适配层忽略其返回状态。 */
 extern void USART_DMA_SendString(const char *str);
 
 /* external: system millisecond counter (defined in delay.c) */
@@ -47,15 +47,14 @@ void elog_port_output(const char *log, size_t size)
     memcpy(buf, log, size);
     buf[size] = '\0';
 
-    /* send via USART1 DMA (non-blocking async) */
+    /* 已启动的发送由 DMA 完成。若上一笔仍忙，底层会先忙等，可能超时。 */
     USART_DMA_SendString(buf);
 }
 
 /*---------------------------------------------------------------------------*/
-/* output lock / unlock                                                       */
-/* Only disable USART1 TX DMA interrupt (DMA1_Channel4) to protect husart1   */
-/* from concurrent access by the TX-complete ISR.                             */
-/* SysTick and all other interrupts keep running — no time drift.             */
+/* 输出锁只屏蔽 USART1 TX DMA 完成中断，SysTick 和其他中断仍可执行。
+ * 若加锁时上一笔 DMA 的完成尚未处理，tx_busy 可能持续为真，直到底层忙等超时。
+ * 解锁会启用该 IRQ，本接口按单层调用使用。 */
 /*---------------------------------------------------------------------------*/
 void elog_port_output_lock(void)
 {
@@ -68,7 +67,7 @@ void elog_port_output_unlock(void)
 }
 
 /*---------------------------------------------------------------------------*/
-/* time — returns formatted timestamp from system tick */
+/* 运行时间来自 SysTick 毫秒计数，和屏幕 RTC 独立。返回的静态字符缓冲区由下一次调用覆盖。 */
 /*---------------------------------------------------------------------------*/
 const char *elog_port_get_time(void)
 {

@@ -5,14 +5,14 @@
 
 typedef struct _QUEUE                                             
 {                                                                 
-    qsize _head;                                                       //队列头
-    qsize _tail;                                                       //队列尾
+    qsize _head;                                                       // 下一个写入位置
+    qsize _tail;                                                       // 下一个读取位置
     qdata _data[QUEUE_MAX_SIZE];                                       //队列数据缓存区
 }QUEUE;                                                           
 
 static QUEUE que = {0,0,0};                                            //指令队列
-static uint32 cmd_state = 0;                                           //队列帧尾检测状态
-static qsize cmd_pos = 0;                                              //当前指令指针位置
+static uint32 cmd_state = 0;                                           // 最近四个输入字节组成的滑动窗口
+static qsize cmd_pos = 0;                                              // 已写入组帧缓冲区的字节数，跨调用保留
 
 /*! 
 *  \brief  清空指令数据
@@ -24,7 +24,7 @@ void queue_reset()
 }
 /*! 
 * \brief  添加指令数据
-* \detial 串口接收的数据，通过此函数放入指令队列 
+* \details 留一格区分满和空。装满时静默丢弃新字节，保留已有数据。
 *  \param  _data 指令数据
 */
 void queue_push(qdata _data)
@@ -72,26 +72,25 @@ qsize queue_find_cmd(qdata *buffer,qsize buf_len)
         {
             continue;
         }
-        //    LED2_ON;
+        /* 帧超出缓冲区时停止复制，仍继续匹配帧尾。 */
         if(cmd_pos<buf_len)                                           //防止缓冲区溢出
             buffer[cmd_pos++] = _data;
 
         cmd_state = ((cmd_state<<8)|_data);                           //拼接最后4个字节，组成一个32位整数
 
-        //最后4个字节与帧尾匹配，得到完整帧
+        /* 以帧尾签名分隔帧。超长帧在此会返回截断后的长度。 */
         if(cmd_state==CMD_TAIL)
         {
-            //LED2_ON;
             cmd_size = cmd_pos;                                       //指令字节长度
             cmd_state = 0;                                            //重新检测帧尾巴
             cmd_pos = 0;                                              //复位指令指针
 
 #if(CRC16_ENABLE)
-            //去掉指令头尾EE，尾FFFCFFFF共计5个字节，只计算数据部分CRC
+            /* 跳过 1 字节帧头和 4 字节帧尾，校验区域末尾含 2 字节 CRC。 */
             if(!CheckCRC16(buffer+1,cmd_size-5))                      //CRC校验
                 return 0;
 
-            cmd_size -= 2;                                            //去掉CRC16（2字节）
+            cmd_size -= 2;                                            // 返回长度扣除 CRC，但缓冲区字节不移动
 #endif
             return cmd_size;
         }

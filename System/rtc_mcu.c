@@ -29,7 +29,7 @@ static void _sec_to_date(uint32_t sec, uint16_t *year, uint8_t *month, uint8_t *
     uint8_t  m;
     uint32_t d;
 
-    /* 蔡勒公式计算星期: 2000-01-01 是周六 (6) */
+    /* 从基准日期的星期累加天数。2000-01-01 是周六，按 0=周日编号为 6。 */
     *week = (uint8_t)((days + 6) % 7);
 
     /* 逐年减 */
@@ -118,7 +118,7 @@ void RTC_MCU_Init(void)
     RCC_RTCCLKCmd(ENABLE);
     RTC_WaitForSynchro();
 
-    RTC_SetPrescaler(32767);      /* 32768Hz / 32768 = 1Hz */
+    RTC_SetPrescaler(32767);      /* LSE 32.768 kHz 时得到 1 Hz。LSI 分支也沿用此值，频率取决于实际 LSI。 */
     RTC_WaitForLastTask();
 
     /* 标记已配置 */
@@ -152,7 +152,7 @@ void RTC_MCU_SetTime(const RTC_Time_t *t)
     sec += (uint32_t)t->minute * 60U;
     sec += (uint32_t)t->second;
 
-    /* 写 RTC 计数器前需先进入配置模式 */
+    /* 等待前一次写入完成。标准库 RTC_SetCounter 内部负责进入和退出配置模式。 */
     RTC_WaitForLastTask();
     RTC_SetCounter(sec);
     RTC_WaitForLastTask();
@@ -190,7 +190,8 @@ void RTC_BootRestore(void)
     uint32_t ms = delay_millis();
     while (!delay_expired(ms, 1500U)) { HMI_LinkTask(); }
 
-    /* RTC 已配置 (VBAT 供电, 一直在走): 不覆盖 */
+    /* 标记表示备份域曾配置。RTC_MCU_Init 在首次配置时也会写标记，
+     * 因此若先调用初始化，本分支同样会跳过 EEPROM 恢复。 */
     if (BKP_ReadBackupRegister(BKP_DR1) == BKP_DR1_RTC_MAGIC)
     {
         RTC_Time_t t;

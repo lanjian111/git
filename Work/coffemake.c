@@ -6,6 +6,9 @@
 #include "elog.h"                                                   // EasyLogger 统一日志接口
 #include <stdlib.h>                                                 // atof 字符串转浮点
 
+/* 萃取与两种排液各有状态机，共用 GPIO 和缓存的 ADC 液位。
+ * 100 ms 调度按清洗、萃取、排废液、排萃取液顺序调用。各流程依据自己的启动标志推进，
+ * 共享阀泵和采样开关，当前调度没有统一的流程互锁。 */
 #define LOG_TAG                         "coffee"
 
 /* ========================== ADC 液位映射 ========================== */
@@ -22,7 +25,7 @@
 #define COFFEE_LEVEL_DEBOUNCE_COUNT        3U                        // 液位阈值连续确认次数（每次100ms）
 
 /* ========================== 屏幕常量 ========================== */
-#define SCREEN_ID_COFFEE                   0x0003U                   // 萃取画面ID
+#define SCREEN_ID_COFFEE                   0x0003U                   // 历史常量，当前未引用。实际萃取页由 cmd_process.c 按 0x0004 分发
 
 /* ========================== 状态机 ========================== */
 typedef enum
@@ -33,7 +36,7 @@ typedef enum
 	COFFEE_STATE_STAGE2_FILL,                                         // 第2段进水：继续进水到目标液位
 	COFFEE_STATE_BREW,                                                // 萃取阶段：开循环泵，按设定时间计时
 	COFFEE_STATE_DRAIN_DECISION,                                      // 排水决策：判断自动/手动
-	COFFEE_STATE_DRAIN,                                               // 自动排水阶段
+	COFFEE_STATE_DRAIN,                                               // 历史状态，无正常入口。自动排液由独立任务推进
 	COFFEE_STATE_DONE,                                                // 萃取完成
 	COFFEE_STATE_ERROR                                                // 故障状态
 } CoffeeState;
@@ -67,7 +70,7 @@ static void coffee_set_pump(uint8_t state)                           // 设置�
 	}
 }
 
-static void coffee_set_all_closed(void)                              // 关闭萃取涉及的所有阀和泵
+static void coffee_set_all_closed(void)                              // 关闭萃取直接控制的进水阀和循环泵
 {
 	coffee_set_pump(0);
 	coffee_set_inlet(0);
@@ -86,6 +89,8 @@ static void coffee_change_state(CoffeeState next_state, const char *message)
  * control_id:
  *   0x0001 — 液量设定（字符串，如 "3.5"）
  *   0x0002 — 时间设定（字符串，如 "10"）
+ * 输入须以 NUL 结尾。参数写入立即生效，状态机读取这些共享配置。
+ * 液量按 1~5 L 限幅后线性换算。分钟整数先转为无符号，再限幅到 1~60。
  */
 void Coffee_SetParam(uint16_t control_id, uint8_t *str)
 {
@@ -128,7 +133,7 @@ void Coffee_SetParam(uint16_t control_id, uint8_t *str)
 
 /*
  * 由 cmd_process.c 在收到萃取页面选择器通知时调用
- * control_id 0x0003, item: 0=自动排水, 1=手动排水
+ * 选择器 ID 为 0x0003。item 原样保存，流程决策仅将 1 当作手动，其他值走自动。
  */
 void Coffee_SetDrainMode(uint8_t item)
 {
@@ -138,7 +143,7 @@ void Coffee_SetDrainMode(uint8_t item)
 
 /* ========================== 外部接口 ========================== */
 
-void Coffee_ResetState(void)                                          // 复位萃取流程
+void Coffee_ResetState(void)                                          // 关进水阀和泵并清计时，保留设定参数与排液标志
 {
 	FLAG_LIQUID_LEVEL_SAMPLE = 0;
 	coffee_set_all_closed();
@@ -153,7 +158,7 @@ void Coffee_ResetState(void)                                          // 复位�
  * ======================================================================== */
 
 #define DRAIN_LEVEL_LOW_THRESHOLD           100U                      // 排水结束液位阈值（ADC）
-#define DRAIN_LEVEL_DEBOUNCE_COUNT          3U                        // 液位低于阈值连续确认次数
+#define DRAIN_LEVEL_DEBOUNCE_COUNT          3U                        // 泵开启后连续读到 ADC ≤ 阈值的确认次数
 #define DRAIN_DELAY_12S_MS                  12000UL                   // 开阀后等待12秒
 #define DRAIN_PUMP_TIMEOUT_MS               60000UL                   // 循环泵排水60秒超时
 #define DRAIN_LOW_HOLD_MS                   2000UL                    // 液位低于阈值后继续保持2秒
@@ -229,7 +234,8 @@ static void drain_set_all_closed(void)
  * 排废液任务 — Coffee_DrainWaste_Task()
  *
  * 流程：关阀 → 液位≤100直接结束 → 开循环三通12s → 开泵排水(60s超时)
- *       → 液位≤100保持2s → 关阀完成
+ *       → 连续 3 次读到 ADC ≤ 100 → 泵继续运行 2 s → 关阀完成
+ * 初始化用进入本轮时读到的 ADC 缓存，可能是采样关闭前的最后一个结果。
  * ======================================================================== */
 
 void Coffee_DrainWaste_Task(void)
@@ -332,7 +338,7 @@ void Coffee_DrainWaste_Task(void)
 
 	case DRAIN_WASTE_STATE_ERROR:
 		log_e("DrainWaste: ERROR state");
-		/* 由外部清零 FLAG 后回到 IDLE */
+		/* 进入故障时已清启动标志。下一轮通常从函数入口执行收尾并回到 IDLE。 */
 		break;
 
 	default:
@@ -346,7 +352,8 @@ void Coffee_DrainWaste_Task(void)
  *
  * 流程（与排废液区别：多一步开出液三通12s）：
  *   关阀 → 液位≤100直接结束 → 开出液三通12s → 开循环三通12s
- *   → 开泵排水(60s超时) → 液位≤100保持2s → 关阀完成
+ *   → 开泵排液（60 秒超时）→ 连续 3 次读到 ADC ≤ 100 → 泵继续运行 2 s → 关阀完成
+ * 初始化同样直接使用本轮的 ADC 缓存。
  * ======================================================================== */
 
 void Coffee_DrainBrew_Task(void)
@@ -460,7 +467,7 @@ void Coffee_DrainBrew_Task(void)
 
 	case DRAIN_BREW_STATE_ERROR:
 		log_e("DrainBrew: ERROR state");
-		/* 由外部清零 FLAG 后回到 IDLE */
+		/* 进入故障时已清启动标志。下一轮通常从函数入口执行收尾并回到 IDLE。 */
 		break;
 
 	default:
@@ -540,7 +547,7 @@ void Coffee_Task(void)                                                // 每100m
 	/* -------------------- 第2段进水：达到目标液量 -------------------- */
 	case COFFEE_STATE_STAGE2_FILL:
 	{
-		/* 超时计算：(target - 1) * 30s */
+		/* 先把目标升数减 1 后转为整数，再乘 30 秒。小数部分被截去，结果为 0 时补到 30 秒。 */
 		uint32_t stage2_timeout = (uint32_t)(g_target_liters - 1.0f) * COFFEE_STAGE2_PER_LITER_MS;
 		if (stage2_timeout == 0) stage2_timeout = COFFEE_STAGE2_PER_LITER_MS; // 兜底
 
@@ -633,13 +640,12 @@ void Coffee_Task(void)                                                // 每100m
 		}
 		break;
 
-	/* -------------------- 排水阶段：不再使用，保留case避免编译警告 -------------------- */
+	/* 历史排液状态，若进入直接转 DONE。正常自动排液由 Coffee_DrainBrew_Task 执行。 */
 	case COFFEE_STATE_DRAIN:
-		/* 排水已由独立的 Coffee_DrainBrew_Task 处理，此状态不再使用 */
 		coffee_change_state(COFFEE_STATE_DONE, "COFFEE_STATE_DONE");
 		break;
 
-	/* -------------------- 萃取完成 -------------------- */
+	/* 正常决策已清 FLAG_COFFEE_START，下一轮通常由函数入口复位。 */
 	case COFFEE_STATE_DONE:
 		FLAG_LIQUID_LEVEL_SAMPLE = 0;
 		log_i("Extraction process complete.");
@@ -652,7 +658,7 @@ void Coffee_Task(void)                                                // 每100m
 		coffee_set_all_closed();
 		FLAG_LIQUID_LEVEL_SAMPLE = 0;
 		log_e("Extraction process error, all valves/pumps closed.");
-		// 停留在 ERROR 状态，直到 FLAG_COFFEE_START 被外部清零后由 IDLE 分支复位
+		// 故障转入此状态时已清启动标志，下一轮通常由函数入口复位
 		break;
 
 	default:

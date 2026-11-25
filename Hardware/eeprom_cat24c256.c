@@ -6,14 +6,9 @@
  * CAT24C256 EEPROM 驱动实现
  *
  * 异步写入状态机:
- *   IDLE → SEND_PAGE → WAIT_WRITE → (有下一页?) → SEND_PAGE
- *                                      ↓ 无下一页
- *                                    DONE → IDLE
- *
- * 关键点:
- *   - SEND_PAGE 阶段使用阻塞式 I?C (约 500μs)，可接受
- *   - WAIT_WRITE 阶段使用 delay_expired() 非阻塞等待 5ms
- *   - WriteBuffer 自动拆页，不跨页边界
+ *   写接口同步发送第一页，成功后标记 SEND_PAGE，任一字节 NACK 则进入 NACK。
+ *   任务看到 SEND_PAGE 后开始计时并转 WAIT_WRITE，至少等待 5 ms 再同步发下一页或转 DONE。
+ *   实际检查间隔由 EEPROM_Task 调用周期决定。DONE 和 NACK 均须由上层清除才回到 IDLE。
  *==========================================================================*/
 
 /* --- 写入控制块 (异步写入上下文) --- */
@@ -54,7 +49,7 @@ void EEPROM_Init(void)
 /*==========================================================================
  * EEPROM_ReadByte - 同步读取单字节
  *
- * I?C 事务: START → 设备地址(W) → 地址高8位 → 地址低8位
+ * I2C 事务: START → 设备地址(W) → 地址高8位 → 地址低8位
  *                → REPEAT START → 设备地址(R) → 读1字节(NACK) → STOP
  *==========================================================================*/
 uint8_t EEPROM_ReadByte(uint16_t addr)
@@ -88,8 +83,8 @@ uint8_t EEPROM_ReadByte(uint16_t addr)
 /*==========================================================================
  * EEPROM_ReadBuffer - 同步连续读取
  *
- * CAT24C256 支持连续读取，内部地址自动递增，跨页自动回卷。
- * 最后一个字节发 NACK 终止传输。
+ * 连续读取时，地址逐字节递增，可跨 64 字节页，到芯片末尾才回卷。
+ * 最后一字节由主机发送 NACK。地址阶段收到 NACK 时立即返回，保留原输出缓冲区。
  *==========================================================================*/
 void EEPROM_ReadBuffer(uint16_t addr, uint8_t *buf, uint16_t len)
 {
@@ -151,7 +146,7 @@ EEPROM_Result_t EEPROM_WriteByte(uint16_t addr, uint8_t data)
 /*==========================================================================
  * EEPROM_WritePage - 异步写入一页 (len ≤ 64，不跨页)
  *
- * 注意: buf 指针在异步操作完成之前必须保持有效！
+ * 首段在调用时同步发送。跨页时保留缓冲区和内容，供后续任务发送。
  *==========================================================================*/
 EEPROM_Result_t EEPROM_WritePage(uint16_t addr, const uint8_t *buf, uint16_t len)
 {
@@ -180,7 +175,7 @@ EEPROM_Result_t EEPROM_WritePage(uint16_t addr, const uint8_t *buf, uint16_t len
  *
  * 内部自动按 64 字节页边界拆分，每页写完等待 5ms 再写下一页。
  *
- * 注意: buf 指针在异步操作完成之前必须保持有效！
+ * 首段在调用时同步发送。跨页时保留缓冲区和内容，供后续任务发送。
  *==========================================================================*/
 EEPROM_Result_t EEPROM_WriteBuffer(uint16_t addr, const uint8_t *buf, uint16_t len)
 {
@@ -251,7 +246,7 @@ EEPROM_State_t EEPROM_GetState(void)
 }
 
 /*==========================================================================
- * EEPROM_IsIdle - 是否空闲
+ * EEPROM_IsIdle - 仅在 IDLE 返回 1。DONE 或 NACK 必须先确认。
  *==========================================================================*/
 uint8_t EEPROM_IsIdle(void)
 {
@@ -294,9 +289,9 @@ static void _prepare_next_page(void)
 }
 
 /*==========================================================================
- * _start_page_write - 发起一页的 I?C 写入 (阻塞式, ~500μs)
+ * _start_page_write - 同步发送一页 I2C 事务，耗时取决于字节数
  *
- * I?C 事务: START → 设备地址(W) → 地址高8位 → 地址低8位
+ * I2C 事务: START → 设备地址(W) → 地址高8位 → 地址低8位
  *                → 数据[0] → 数据[1] → ... → STOP
  *
  * 进来前确保: g_write_ctx.page_addr / page_buf / page_len 已就绪

@@ -98,13 +98,15 @@ void LED2_Turn(void)
 }
 
 
+/* 由 100 ms 周期任务驱动，两个模式共享上次翻转时间。
+ * 注释中的间隔是电平翻转间隔，完整亮灭周期是翻转间隔的两倍。 */
 void LED_flicker(void)
 {
   static uint32_t last_ms = 0;
 
   if (FLAG_DEBUG_MODE)
   {
-    /* 调试模式: LED2 快闪 200ms */
+    /* 调试模式每 200 ms 翻转 LED2。 */
     if (delay_expired(last_ms, 200U))
     {
       LED1_OFF();                        // LED1 常灭
@@ -114,7 +116,7 @@ void LED_flicker(void)
   }
   else
   {
-    /* 正常模式: LED1 慢闪 1s */
+    /* 正常模式每 1 s 翻转 LED1。 */
     if (delay_expired(last_ms, 1000U))
     {
       LED2_OFF();                        // LED2 常灭

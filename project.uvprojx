@@ -405,10 +405,11 @@
               <FileType>5</FileType>
               <FilePath>.\Start\system_stm32f10x.h</FilePath>
             </File>
+            <!-- STM32F103RC 采用 HD 启动文件。其向量表包含 BW16 驱动所需的 UART5 中断入口。 -->
             <File>
-              <FileName>startup_stm32f10x_md.s</FileName>
+              <FileName>startup_stm32f10x_hd.s</FileName>
               <FileType>2</FileType>
-              <FilePath>.\Start\startup_stm32f10x_md.s</FilePath>
+              <FilePath>.\Start\startup_stm32f10x_hd.s</FilePath>
             </File>
           </Files>
         </Group>
@@ -670,6 +671,7 @@
               <FileType>5</FileType>
               <FilePath>.\System\sys.h</FilePath>
             </File>
+            <!-- 屏幕 RTC 提供校时数据，编入负责读取回包和推进时间缓存的任务。 -->
             <File>
               <FileName>rtc_screen.c</FileName>
               <FileType>1</FileType>
@@ -749,6 +751,17 @@
               <FileName>USARTDMA.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\Hardware\USARTDMA.h</FilePath>
+            </File>
+            <!-- 编入 UART5 驱动以提供主程序接口和中断实现，头文件也列入 Hardware 分组便于查看。 -->
+            <File>
+              <FileName>bw16_uart.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Hardware\bw16_uart.c</FilePath>
+            </File>
+            <File>
+              <FileName>bw16_uart.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Hardware\bw16_uart.h</FilePath>
             </File>
             <File>
               <FileName>flag.c</FileName>

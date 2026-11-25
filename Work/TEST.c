@@ -7,6 +7,7 @@
 
 #ifdef TEST_MODE
 
+/* 下次轮到的输出编号。每次先关五路，再打开其中一路，顺序与 switch 对应。 */
 volatile uint8_t gpio_index = 0;
 
 void TEST_Function(void)
@@ -31,7 +32,7 @@ void TEST_Function(void)
 
 #else
 
-/* 正式版本：测试函数为空，编译器会内联优化掉，不产生额外开销 */
+/* 未定义 TEST_MODE 时保留空实现，100 ms 调度入口仍按原有顺序调用。 */
 void TEST_Function(void)
 {
 }

@@ -4,6 +4,9 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
+# 脚本离线输出硬编码的上位机协议方案。当前固件的 USART1 用于日志和调试输出，
+# HMI 走 USART3 上的 EE…FF FC FF FF 帧。表中的 AA 55 协议没有接入当前固件。
+# OUT 指定工作簿保存路径，运行时同路径的原文件会被覆盖。
 OUT = r"C:\Users\汪剑\Desktop\主板上位机通信协议.xlsx"
 
 # ---------- 样式 ----------
@@ -21,11 +24,13 @@ CENTER = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
 
 def set_widths(ws, widths):
+    # openpyxl 的列编号从 1 开始，宽度按列顺序传入，再转换为 A、B、C 等列名。
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
 
 def sheet_title(ws, text, note=None):
+    # 统一合并前六列作为标题，可选说明占第 2 行。返回下一个可放表格的行号。
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=6)
     c = ws.cell(row=1, column=1, value=text)
     c.font = TITLE_FONT
@@ -45,6 +50,8 @@ def sheet_title(ws, text, note=None):
 
 def write_table(ws, start_row, headers, rows, widths=None, center_cols=None):
     """写表头+数据，返回下一行"""
+    # center_cols 用从 1 开始的列号指定居中列，其余列采用可换行样式。
+    # widths 提供时会设置整张工作表的列宽，方便同页的多块表格共用布局。
     center_cols = center_cols or set()
     for j, h in enumerate(headers, 1):
         c = ws.cell(row=start_row, column=j, value=h)
@@ -64,6 +71,7 @@ def write_table(ws, start_row, headers, rows, widths=None, center_cols=None):
     return r
 
 
+# 新工作簿自带一个空表，协议总览直接复用它，后续主题逐张添加工作表。
 wb = Workbook()
 
 # ============ Sheet 1 协议总览 ============
@@ -241,6 +249,8 @@ r = write_table(ws, r,
 ws = wb.create_sheet("8-完整帧实例")
 r = sheet_title(ws, "完整帧实例（逐字节拆解，含校验值）",
                 "所有帧十六进制字符串可直接用串口助手发送/核对。CRC 为低字节在前。")
+# 示例为预先填好的文本。本脚本写表时不会据字段重新计算帧长度或 CRC，
+# 最后两条示例用于演示扩展位图。计算总帧长时，固定字段合计 8 字节。
 examples = [
     ["1", "循环泵 开", "AA 55", "01", "02", "01 01", "60 48", "0D 0A", "AA 55 01 02 01 01 60 48 0D 0A"],
     ["2", "进水阀 关", "AA 55", "01", "02", "02 00", "A1 78", "0D 0A", "AA 55 01 02 02 00 A1 78 0D 0A"],
@@ -297,7 +307,7 @@ r = write_table(ws, r,
     ],
     widths=[18, 26, 26, 40], center_cols={1})
 
-# 冻结首行、设置打印方向等
+# 冻结每张表的前两行。滚动查看协议条目时，顶部标题和说明仍能看到。
 for ws in wb.worksheets:
     ws.freeze_panes = "A3"
 

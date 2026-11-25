@@ -24,7 +24,8 @@
 #define __STM32F10x_CONF_H
 
 /* Includes ------------------------------------------------------------------*/
-/* Uncomment/Comment the line below to enable/disable peripheral header file inclusion */
+/* USE_STDPERIPH_DRIVER 启用时由 stm32f10x.h 引入。下表控制可见的标准外设声明，
+ * 外设是否配置与启用仍取决于板级代码及 Keil 工程的编译配置。 */
 #include "stm32f10x_adc.h"
 #include "stm32f10x_bkp.h"
 #include "stm32f10x_can.h"

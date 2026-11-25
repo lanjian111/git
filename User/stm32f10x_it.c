@@ -162,7 +162,7 @@ void PendSV_Handler(void)
 
 /******************* (C) COPYRIGHT 2011 STMicroelectronics *****END OF FILE****/
 /**
-  * @brief  DMA1 Channel2中断处理（USART3 TX — 屏幕 PB10）
+  * @brief  DMA1 Channel2 处理屏幕 USART3 TX，PB10。USART2_DMA 是驱动的兼容命名。
   */
 void DMA1_Channel2_IRQHandler(void)
 {
@@ -170,7 +170,7 @@ void DMA1_Channel2_IRQHandler(void)
 }
 
 /**
-  * @brief  DMA1 Channel3中断处理（USART3 RX — 屏幕 PB11）
+  * @brief  DMA1 Channel3 处理屏幕 USART3 RX，PB11。帧解析在主循环进行。
   */
 void DMA1_Channel3_IRQHandler(void)
 {
@@ -193,7 +193,8 @@ void DMA1_Channel5_IRQHandler(void)
     USART_DMA_RX_IRQHandler();
 }
 
-// SysTick中断服务函数，每1ms进入一次，每100ms置位FLAG_100MS
+/* 1 ms 中断只维护节拍和 100 ms 待处理标志，耗时任务由主循环执行。
+ * FLAG_100MS 仅表示存在待处理周期，重复置位不会累积次数。 */
 void SysTick_Handler(void)
 {
     static uint8_t tick_cnt = 0;

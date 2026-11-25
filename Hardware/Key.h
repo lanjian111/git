@@ -18,7 +18,9 @@
 #define KEY1_LONG_FLAG      0x04U   // Key1 长按
 #define KEY2_LONG_FLAG      0x08U   // Key2 长按
 
+/* 将 PC2/PC3 配为上拉输入，按下为低电平。 */
 void Key_Init(void);
+/* 轮询并返回本次新产生的事件位。当前主循环只初始化按键 GPIO。 */
 uint8_t Key_GetNum(void);
 
 #endif

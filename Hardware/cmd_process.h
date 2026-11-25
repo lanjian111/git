@@ -1,5 +1,5 @@
 /*! 
-*  \file hmi_driver.h
+*  \file cmd_process.h
 *  \brief 指令分类处理
 *  \version 1.0
 *  \date 2012-2018
@@ -21,12 +21,12 @@
 #define NOTIFY_MENU                0X14  //菜单事件通知
 #define NOTIFY_TIMER               0X43  //定时器超时通知
 #define NOTIFY_CONTROL             0XB1  //控件更新通知
-#define NOTIFY_READ_RTC            0XF7  //读取RTC时间
+#define NOTIFY_READ_RTC            0XF7  // 屏幕读时应答的命令字，位于帧偏移 1
 #define MSG_GET_CURRENT_SCREEN     0X01  //画面ID变化通知
 #define MSG_GET_DATA               0X11  //控件数据通知
 
-#define PTR2U16(PTR) ((((uint8 *)(PTR))[0]<<8)|((uint8 *)(PTR))[1])  //从缓冲区取16位数据
-#define PTR2U32(PTR) ((((uint8 *)(PTR))[0]<<24)|(((uint8 *)(PTR))[1]<<16)|(((uint8 *)(PTR))[2]<<8)|((uint8 *)(PTR))[3])  //从缓冲区取32位数据
+#define PTR2U16(PTR) ((((uint8 *)(PTR))[0]<<8)|((uint8 *)(PTR))[1])  // 读取 2 字节大端值，调用方应先检查长度
+#define PTR2U32(PTR) ((((uint8 *)(PTR))[0]<<24)|(((uint8 *)(PTR))[1]<<16)|(((uint8 *)(PTR))[2]<<8)|((uint8 *)(PTR))[3])  // 读取 4 字节大端值，调用方应先检查长度
 
 
 enum CtrlType
@@ -50,6 +50,8 @@ enum CtrlType
 #pragma pack(push)
 #pragma pack(1)                           //按字节对齐
 
+/* 屏幕通用控件帧的前 8 字节映射。param 的有效范围由实际帧长决定，
+ * 线上帧尾紧随有效参数，结构体末尾的 cmd_tail 成员不用于定位它。 */
 typedef struct
 {
     uint8    cmd_head;                    //帧头
@@ -60,7 +62,7 @@ typedef struct
     uint16   control_id;                  //产生消息的控件ID
     uint8    control_type;                //控件类型
 
-    uint8    param[256];                  //可变长度参数，最多256个字节
+    uint8    param[256];                  // 可变长度参数，当前接收上限另由 CMD_MAX_SIZE 限制
 
     uint8  cmd_tail[4];                   //帧尾
 }CTRL_MSG,*PCTRL_MSG;
@@ -70,8 +72,8 @@ typedef struct
 
 /*! 
 *  \brief  消息处理流程
-*  \param msg 待处理消息
-*  \param size 消息长度
+*  \param msg 已由队列切帧的可写缓冲区。处理时会就地转换页面和控件 ID。
+*  \param size queue_find_cmd 返回的长度，单位为字节
 */
 void ProcessMessage( PCTRL_MSG msg, uint16 size );
 /*! 

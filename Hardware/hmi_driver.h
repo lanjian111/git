@@ -9,10 +9,10 @@
 #ifndef _HMI_DRIVER_
 #define _HMI_DRIVER_
 
-#define FIRMWARE_VER 917   /*!< 保持此固件版本号与真实屏幕一致，确保新增功能可用*/
-#define CRC16_ENABLE 0         /*!< 如果需要CRC16校验功能，修改此宏为1(此时需要在VisualTFT工程中配CRC校验)*/
-#define CMD_MAX_SIZE 64        /*!<单条指令大小，根据需要调整，尽量设置大一些*/
-#define QUEUE_MAX_SIZE 128   /*!< 指令接收缓冲区大小，根据需要调整，尽量设置大一些*/
+#define FIRMWARE_VER 917   /*!< 编译期屏幕协议版本，决定部分 API 的命令变体。 */
+#define CRC16_ENABLE 0         /*!< 当前工程与屏幕使用无 CRC 帧。启用时须同时核对 VisualTFT 和接收分发。 */
+#define CMD_MAX_SIZE 64        /*!< 单帧接收缓冲区大小，含帧头与帧尾。 */
+#define QUEUE_MAX_SIZE 128   /*!< 字节环形队列槽位数，实际容量少 1 字节。 */
 
 #define SD_FILE_EN 0
 
@@ -34,8 +34,8 @@ typedef uint8_t uchar;
 uint16 CheckCRC16(uint8 *buffer,uint16 n);
 
 /*! 
- *  \brief  延时
- *  \param  n 延时时间(毫秒单位)
+ *  \brief  厂商接口保留的空循环忙等，耗时取决于编译优化和主频。
+ *  \param  n 外层循环次数
  */
 void DelayMS(unsigned int n);
 
@@ -102,10 +102,10 @@ void SetFont_Region(uint8 enable,uint16 width,uint16 height );
 void SetFilterColor(uint16 fillcolor_dwon, uint16 fillcolor_up);
 
 /*! 
- *  \brief  设置过滤色
+ *  \brief  在指定坐标绘制文本。
  *  \param  x 位置X坐标
  *  \param  y 位置Y坐标
- *  \param  back 颜色上界
+ *  \param  back 背景绘制参数，按一个字节发送
  *  \param  font 字体
  *  \param  strings 字符串内容
  */
@@ -203,8 +203,8 @@ void GUI_CircleFill(uint16 x0, uint16 y0, uint16 r);
 
 /*! 
  *  \brief      画弧线
- *  \param  x0 圆心位置X坐标
- *  \param  y0 圆心位置Y坐标
+ *  \param  x 圆心 X 坐标
+ *  \param  y 圆心 Y 坐标
  *  \param  r 半径
  *  \param  sa 起始角度
  *  \param  ea 终止角度
@@ -248,23 +248,20 @@ void GUI_Ellipse (uint16 x0, uint16 y0, uint16 x1,uint16 y1 );
 void GUI_EllipseFill (uint16 x0, uint16 y0, uint16 x1,uint16 y1 );
 
 /*! 
- *  \brief      画线
- *  \param  x0 起始位置X坐标
- *  \param  y0 起始位置Y坐标
- *  \param  x1 结束位置X坐标
- *  \param  y1 结束位置Y坐标
+ *  \brief      发送屏幕背光亮度设置指令 0x60。
+ *  \param  light_level 单字节亮度参数，原样发送
  */
 void SetBackLight(uint8 light_level);
 
 /*! 
  *  \brief   蜂鸣器设置
- *  \time  time 持续时间(毫秒单位)
+ *  \param  time 发送给屏幕的单字节蜂鸣持续时间参数
  */
 void SetBuzzer(uint8 time);
 
 /*! 
  *  \brief   触摸屏设置
- *  \param enable 触摸使能
+ *  \param enbale 触摸使能（参数名沿用兼容接口）
  *  \param beep_on 触摸蜂鸣器
  *  \param work_mode 触摸工作模式：0按下就上传，1松开才上传，2不断上传坐标值，3按下和松开均上传数据
  *  \param press_calibration 连续点击触摸屏20下校准触摸屏：0禁用，1启用
@@ -546,7 +543,7 @@ void GraphChannelDataClear(uint16 screen_id,uint16 control_id,uint8 channel);
 void GraphSetViewport(uint16 screen_id,uint16 control_id,int16 x_offset,uint16 x_mul,int16 y_offset,uint16 y_mul);
 
 /*! 
- *  \brief     开始批量更新
+ *  \brief     打开一个批量更新帧，之后只能追加对应记录，最后调用 BatchEnd。
  *  \param  screen_id 画面ID
  */
 void BatchBegin(uint16 screen_id);
@@ -554,7 +551,7 @@ void BatchBegin(uint16 screen_id);
 /*! 
  *  \brief     批量更新按钮控件
  *  \param  control_id 控件ID
- *  \param  value 数值
+ *  \param  state 按钮状态，写入当前批量更新帧
  */
 void BatchSetButtonValue(uint16 control_id,uint8 state);
 
@@ -945,6 +942,7 @@ void Record_Select(uint16 screen_id,uint16 control_id,uint16 index);
 /*! 
  *  \brief     读取屏幕RTC时间
  */
+/* 返回 1 表示读屏幕 RTC 的指令已交给 DMA，返回 0 时由调用方稍后重试。 */
 uint8 ReadRTC(void);
 
 /*! 
@@ -954,12 +952,12 @@ uint8 ReadRTC(void);
 void WriteRTC(uint8 *rtc_data);
 
 /*! 
- *  \brief     初始化HMI接收链路（回调+队列）
+ *  \brief     USART3 DMA 初始化后调用，清空接收缓冲和组帧状态并注册回调。
  */
 void HMI_LinkInit(void);
 
 /*! 
- *  \brief     HMI解析任务，建议在主循环中高频调用
+ *  \brief     主循环轮询 USART3 环形 DMA，组帧后调用 ProcessMessage。
  */
 void HMI_LinkTask(void);
 
