@@ -1,7 +1,7 @@
-#ifndef __RTC_STORAGE_H
-#define __RTC_STORAGE_H
+#ifndef __RTC_STORAGE_H /* 仅在尚未定义 __RTC_STORAGE_H时编译下方代码。 */
+#define __RTC_STORAGE_H /* 定义 __RTC_STORAGE_H，供头文件防重包含或后续条件编译检查。 */
 
-#include <stdint.h>
+#include <stdint.h> /* 使用位宽明确的整数类型，匹配寄存器宽度及协议字段。 */
 
 /*==========================================================================
  * RTC 时间存储模块
@@ -19,7 +19,7 @@
 #define RTC_DATA_SIZE           8U          /* RTC 数据长度 (字节)            */
 
 /* 时间数据结构 (二进制) */
-typedef struct {
+typedef struct { /* 定义关联字段的结构类型，供相关接口复用。 */
     uint16_t year;      /* 年, 如 2026                            */
     uint8_t  month;     /* 月, 1~12                              */
     uint8_t  day;       /* 日, 1~31                              */
@@ -27,23 +27,23 @@ typedef struct {
     uint8_t  minute;    /* 分, 0~59                              */
     uint8_t  second;    /* 秒, 0~59                              */
     uint8_t  week;      /* 星期, 0~6 (0=周日)                    */
-} RTC_Time_t;
+} RTC_Time_t; /* 为上述定义命名为 RTC_Time_t，便于在声明中引用。 */
 
 /*==========================================================================
  * 格式转换
  *==========================================================================*/
 
 /* 历史声明。当前源码无对应外部实现，屏幕读时解码见 rtc_screen.c。 */
-uint8_t  RTC_Bcd2Bin(uint8_t bcd);
+uint8_t  RTC_Bcd2Bin(uint8_t bcd); /* 声明接口，历史声明。当前源码无对应外部实现，屏幕读时解码见 rtc_screen.c。 */
 
 /* 历史声明。当前源码无对应外部实现。 */
-uint8_t  RTC_Bin2Bcd(uint8_t bin);
+uint8_t  RTC_Bin2Bcd(uint8_t bin); /* 声明接口，历史声明。当前源码无对应外部实现。 */
 
 /* 将二进制 RTC_Time_t 打包为 8 字节大端数组 (用于 EEPROM) */
-void     RTC_Pack(const RTC_Time_t *t, uint8_t out[8]);
+void     RTC_Pack(const RTC_Time_t *t, uint8_t out[8]); /* 声明接口，把日期时间字段编码为 EEPROM 约定的字节序列。 */
 
 /* 从 8 字节大端数组解析为 RTC_Time_t */
-void     RTC_Unpack(const uint8_t raw[8], RTC_Time_t *t);
+void     RTC_Unpack(const uint8_t raw[8], RTC_Time_t *t); /* 声明接口，将 EEPROM 字节序列拆回日期时间结构字段。 */
 
 /*==========================================================================
  * 校验与计算
@@ -51,20 +51,20 @@ void     RTC_Unpack(const uint8_t raw[8], RTC_Time_t *t);
 
 /* 公历蔡勒公式，返回 0=周六、1=周日、2=周一，以此类推。
  * RTC_Time_t.week 使用 0=周日。直接把此返回值作为 week 写入会偏移一天。 */
-uint8_t  RTC_CalcWeek(uint16_t year, uint8_t month, uint8_t day);
+uint8_t  RTC_CalcWeek(uint16_t year, uint8_t month, uint8_t day); /* 声明接口，按日历日期计算星期值。 */
 
 /* 校验 2000~2099 年的公历日期和时分秒，返回 1 代表有效。星期由调用方另行校验。 */
-uint8_t  RTC_IsValid(const RTC_Time_t *t);
+uint8_t  RTC_IsValid(const RTC_Time_t *t); /* 声明接口，检查日期时间字段范围，避免使用无效时钟数据。 */
 /* 返回指定年月的天数，闰年二月为 29 天。月份越界时返回 0。 */
-uint8_t  RTC_DaysInMonth(uint16_t year, uint8_t month);
+uint8_t  RTC_DaysInMonth(uint16_t year, uint8_t month); /* 声明接口，计算给定年月的实际天数，供校验和跨月进位使用。 */
 
 /*==========================================================================
  * EEPROM 存取
  *==========================================================================*/
 
 /* 同步读取并解包，返回 RTC_IsValid 的结果。当前实现未单独处理 EEPROM 读 NACK。 */
-uint8_t  RTC_LoadFromEEPROM(RTC_Time_t *t);
+uint8_t  RTC_LoadFromEEPROM(RTC_Time_t *t); /* 声明接口，读取并校验 EEPROM 中的时间记录，供启动恢复使用。 */
 /* 返回 0 表示 EEPROM 驱动接收请求，返回 1 表示拒绝。最终状态由 EEPROM_GetState 查询。 */
-uint8_t  RTC_SaveToEEPROM(const RTC_Time_t *t);
+uint8_t  RTC_SaveToEEPROM(const RTC_Time_t *t); /* 声明接口，将有效时间打包后交给 EEPROM 驱动保存。 */
 
-#endif /* __RTC_STORAGE_H */
+#endif /* __RTC_STORAGE_H */ /* 结束这一组条件编译，后面的代码恢复外层编译条件。 */

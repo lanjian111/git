@@ -1,77 +1,77 @@
-#include "rtc_storage.h"
-#include "eeprom_cat24c256.h"
+#include "rtc_storage.h" /* 取得日期校验和 EEPROM 时间记录接口。 */
+#include "eeprom_cat24c256.h" /* 取得 CAT24C256 的容量、读写接口和状态定义。 */
 
 /*==========================================================================
  * 打包 / 解包 (大端序二进制)
  *==========================================================================*/
-void RTC_Pack(const RTC_Time_t *t, uint8_t out[8])
+void RTC_Pack(const RTC_Time_t *t, uint8_t out[8]) /* 把日期时间字段编码为 EEPROM 约定的字节序列。 */
 {
     out[0] = (uint8_t)(t->year >> 8);       /* 年 高字节 */
     out[1] = (uint8_t)(t->year & 0xFF);     /* 年 低字节 */
-    out[2] = t->month;
-    out[3] = t->day;
-    out[4] = t->hour;
-    out[5] = t->minute;
-    out[6] = t->second;
-    out[7] = t->week;
+    out[2] = t->month; /* 将out[2] 更新为 「t->month」。 */
+    out[3] = t->day; /* 将out[3] 更新为 「t->day」。 */
+    out[4] = t->hour; /* 将out[4] 更新为 「t->hour」。 */
+    out[5] = t->minute; /* 将out[5] 更新为 「t->minute」。 */
+    out[6] = t->second; /* 将out[6] 更新为 「t->second」。 */
+    out[7] = t->week; /* 将out[7] 更新为 「t->week」。 */
 }
 
-void RTC_Unpack(const uint8_t raw[8], RTC_Time_t *t)
+void RTC_Unpack(const uint8_t raw[8], RTC_Time_t *t) /* 将 EEPROM 字节序列拆回日期时间结构字段。 */
 {
-    t->year   = ((uint16_t)raw[0] << 8) | raw[1];
-    t->month  = raw[2];
-    t->day    = raw[3];
-    t->hour   = raw[4];
-    t->minute = raw[5];
-    t->second = raw[6];
-    t->week   = raw[7];
+    t->year   = ((uint16_t)raw[0] << 8) | raw[1]; /* 将年份 更新为 「((uint16_t)raw[0] << 8) | raw[1]」。 */
+    t->month  = raw[2]; /* 将月份 更新为 「raw[2]」。 */
+    t->day    = raw[3]; /* 将日 更新为 「raw[3]」。 */
+    t->hour   = raw[4]; /* 将时 更新为 「raw[4]」。 */
+    t->minute = raw[5]; /* 将分 更新为 「raw[5]」。 */
+    t->second = raw[6]; /* 将秒 更新为 「raw[6]」。 */
+    t->week   = raw[7]; /* 将星期 更新为 「raw[7]」。 */
 }
 
 /*==========================================================================
  * 公历闰年。整百年须能被 400 整除，其他年份能被 4 整除即可。
  *==========================================================================*/
-static uint8_t _is_leap(uint16_t year)
+static uint8_t _is_leap(uint16_t year) /* 按公历规则判断该年二月是否有 29 天。 */
 {
-    return ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)) ? 1 : 0;
+    return ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)) ? 1 : 0; /* 将 「((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)) ? 1 : 0」 返回给调用者，供上层使用。 */
 }
 
 /*==========================================================================
  * 公共日历计算，供日期合法性校验和屏幕时钟跨月时共用
  *==========================================================================*/
-uint8_t RTC_DaysInMonth(uint16_t year, uint8_t month)
+uint8_t RTC_DaysInMonth(uint16_t year, uint8_t month) /* 计算给定年月的实际天数，供校验和跨月进位使用。 */
 {
     /* 月份先做 1 至 12 检查，再转换成数组下标。闰年只影响二月的天数。 */
-    static const uint8_t days[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-    if (month == 0 || month > 12) return 0;
-    if (month == 2 && _is_leap(year)) return 29;
-    return days[month - 1];
+    static const uint8_t days[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}; /* 定义天数，将天数 更新为 「{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}」。 */
+    if (month == 0 || month > 12) return 0; /* 当 「month == 0 || month > 12」 成立时，以 0 返回本分支的结果，调用方据此处理当前状态。 */
+    if (month == 2 && _is_leap(year)) return 29; /* 当 「month == 2 && _is_leap(year)」 成立时，将 「29」 返回给调用者，供上层使用。 */
+    return days[month - 1]; /* 将 「days[month - 1]」 返回给调用者，供上层使用。 */
 }
 
 /*==========================================================================
  * 公历蔡勒公式的原始编号，0=周六、1=周日。
  *==========================================================================*/
-uint8_t RTC_CalcWeek(uint16_t year, uint8_t month, uint8_t day)
+uint8_t RTC_CalcWeek(uint16_t year, uint8_t month, uint8_t day) /* 按日历日期计算星期值。 */
 {
-    uint16_t y;
-    uint8_t  m;
-    int      h;
+    uint16_t y; /* 声明y，为后续计算或读取保存中间值。 */
+    uint8_t  m; /* 声明m，为后续计算或读取保存中间值。 */
+    int      h; /* 声明h，为后续计算或读取保存中间值。 */
 
-    if (month < 3)
+    if (month < 3) /* 当 「month < 3」 成立时处理下方分支。 */
     {
-        y = year - 1;
-        m = month + 12;
+        y = year - 1; /* 将y 更新为 「year - 1」。 */
+        m = month + 12; /* 将m 更新为 「month + 12」。 */
     }
-    else
+    else /* 前面的条件不满足时执行此分支。 */
     {
-        y = year;
-        m = month;
+        y = year; /* 将y 更新为 「year」。 */
+        m = month; /* 将m 更新为 「month」。 */
     }
 
     /* 一月、二月按上一年的 13、14 月计算。世纪项可使余数为负，下方归一化到 0~6。 */
-    h = ((int)day + (13 * (m + 1)) / 5 + (y % 100) + ((y % 100) / 4)
-         + ((y / 100) / 4) - 2 * (y / 100)) % 7;
+    h = ((int)day + (13 * (m + 1)) / 5 + (y % 100) + ((y % 100) / 4) /* 将h 更新为 「((int)day + (13 * (m + 1)) / 5 + (y % 100) + ((y % 100) / 4)」。 */
+         + ((y / 100) / 4) - 2 * (y / 100)) % 7; /* 用 「+ ((y / 100) / 4) - 2 * (y / 100)) % 7」 补足上行的表达式、缓冲区内容或接口参数。 */
 
-    if (h < 0) h += 7;
+    if (h < 0) h += 7; /* 当 「h < 0) h += 7」 成立时处理下方分支。 */
 
     return (uint8_t)h;  /* 蔡勒编号，0=周六 */
 }
@@ -79,44 +79,44 @@ uint8_t RTC_CalcWeek(uint16_t year, uint8_t month, uint8_t day)
 /*==========================================================================
  * 检查年份、年月日和时分秒。函数要求 t 有效，星期由调用方检查。
  *==========================================================================*/
-uint8_t RTC_IsValid(const RTC_Time_t *t)
+uint8_t RTC_IsValid(const RTC_Time_t *t) /* 检查日期时间字段范围，避免使用无效时钟数据。 */
 {
-    uint8_t max_day;
+    uint8_t max_day; /* 声明上限 日，为后续计算或读取保存中间值。 */
 
-    if (t->year < 2000 || t->year > 2099)  return 0;
-    if (t->month < 1   || t->month > 12)   return 0;
-    if (t->hour > 23)                       return 0;
-    if (t->minute > 59)                     return 0;
-    if (t->second > 59)                     return 0;
+    if (t->year < 2000 || t->year > 2099)  return 0; /* 当 「t->year < 2000 || t->year > 2099」 成立时，以 0 返回本分支的结果，调用方据此处理当前状态。 */
+    if (t->month < 1   || t->month > 12)   return 0; /* 当 「t->month < 1 || t->month > 12」 成立时，以 0 返回本分支的结果，调用方据此处理当前状态。 */
+    if (t->hour > 23)                       return 0; /* 当 「t->hour > 23」 成立时，以 0 返回本分支的结果，调用方据此处理当前状态。 */
+    if (t->minute > 59)                     return 0; /* 当 「t->minute > 59」 成立时，以 0 返回本分支的结果，调用方据此处理当前状态。 */
+    if (t->second > 59)                     return 0; /* 当 「t->second > 59」 成立时，以 0 返回本分支的结果，调用方据此处理当前状态。 */
 
-    max_day = RTC_DaysInMonth(t->year, t->month);
-    if (t->day < 1 || t->day > max_day)     return 0;
+    max_day = RTC_DaysInMonth(t->year, t->month); /* 将上限 日 更新为 「RTC_DaysInMonth(t->year, t->month)」。 */
+    if (t->day < 1 || t->day > max_day)     return 0; /* 当 「t->day < 1 || t->day > max_day」 成立时，以 0 返回本分支的结果，调用方据此处理当前状态。 */
 
-    return 1;
+    return 1; /* 将 「1」 返回给调用者，供上层使用。 */
 }
 
 /*==========================================================================
  * EEPROM 读取 (同步)
  *==========================================================================*/
-uint8_t RTC_LoadFromEEPROM(RTC_Time_t *t)
+uint8_t RTC_LoadFromEEPROM(RTC_Time_t *t) /* 读取并校验 EEPROM 中的时间记录，供启动恢复使用。 */
 {
-    uint8_t raw[8];
+    uint8_t raw[8]; /* 分配 「raw[8]」 数组，作为当前操作的数据缓冲区。 */
 
     /* 当前代码无论总线结果如何都会解包。读取遇到 NACK 时，底层可能未写入 raw。 */
-    EEPROM_ReadBuffer(RTC_EEPROM_ADDR, raw, RTC_DATA_SIZE);
-    RTC_Unpack(raw, t);
+    EEPROM_ReadBuffer(RTC_EEPROM_ADDR, raw, RTC_DATA_SIZE); /* 调用 EEPROM_ReadBuffer 处理 「RTC_EEPROM_ADDR, raw, RTC_DATA_SIZE」。 */
+    RTC_Unpack(raw, t); /* 将 EEPROM 字节序列拆回日期时间结构字段。 */
 
-    return RTC_IsValid(t);
+    return RTC_IsValid(t); /* 将 「RTC_IsValid(t)」 返回给调用者，供上层使用。 */
 }
 
 /*==========================================================================
  * EEPROM 写入 (异步, 由 EEPROM_Task 在 100ms 任务中推进)
  *==========================================================================*/
-uint8_t RTC_SaveToEEPROM(const RTC_Time_t *t)
+uint8_t RTC_SaveToEEPROM(const RTC_Time_t *t) /* 将有效时间打包后交给 EEPROM 驱动保存。 */
 {
-    uint8_t raw[8];
+    uint8_t raw[8]; /* 分配 「raw[8]」 数组，作为当前操作的数据缓冲区。 */
     /* 当前固定地址和长度可在第一页内一次送完，EEPROM_WriteBuffer 同步发送这一页，
      * 后续任务只等待芯片写入周期。若布局改为跨页，须保证缓冲区在后续页发送时仍有效。 */
-    RTC_Pack(t, raw);
-    return (EEPROM_WriteBuffer(RTC_EEPROM_ADDR, raw, RTC_DATA_SIZE) == EEPROM_OK) ? 0 : 1;
+    RTC_Pack(t, raw); /* 把日期时间字段编码为 EEPROM 约定的字节序列。 */
+    return (EEPROM_WriteBuffer(RTC_EEPROM_ADDR, raw, RTC_DATA_SIZE) == EEPROM_OK) ? 0 : 1; /* 将 「(EEPROM_WriteBuffer(RTC_EEPROM_ADDR, raw, RTC_DATA_SIZE) == EEPROM_OK) ? 0 : 1」 返回给调用者，供上层使用。 */
 }

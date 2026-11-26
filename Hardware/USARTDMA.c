@@ -29,7 +29,7 @@ static void USART2_DMA_NVIC_Init(void); // 初始化 USART2 NVIC
   * @param  baudrate: 波特率
   * @retval None
   */
-void USART_DMA_Init(uint32_t baudrate)
+void USART_DMA_Init(uint32_t baudrate) /* 初始化 USART1 DMA 链路，供日志与调试数据收发。 */
 {
     // 初始化句柄
     memset(&husart1, 0, sizeof(husart1)); // 清零句柄
@@ -56,7 +56,7 @@ void USART_DMA_Init(uint32_t baudrate)
   * @brief  反初始化USART1 DMA（日志）
   * @retval None
   */
-void USART_DMA_DeInit(void)
+void USART_DMA_DeInit(void) /* 反初始化USART1 DMA（日志）。 */
 {
     // 禁用DMA
     DMA_Cmd(USART_DMA_TX_CHANNEL, DISABLE); // 关闭 TX DMA
@@ -78,7 +78,7 @@ void USART_DMA_DeInit(void)
     * @param  baudrate: 波特率
     * @retval None
     */
-void USART2_DMA_Init(uint32_t baudrate)
+void USART2_DMA_Init(uint32_t baudrate) /* 初始化实际连接屏幕的 USART3 DMA 链路，接口沿用 USART2 命名。 */
 {
         // 初始化句柄
     memset(&husart2, 0, sizeof(husart2)); // 清零句柄
@@ -106,7 +106,7 @@ void USART2_DMA_Init(uint32_t baudrate)
     * @brief  反初始化USART2 DMA（屏幕）
     * @retval None
     */
-void USART2_DMA_DeInit(void)
+void USART2_DMA_DeInit(void) /* 反初始化USART2 DMA（屏幕）。 */
 {
         // 禁用DMA
     DMA_Cmd(USART2_DMA_TX_CHANNEL, DISABLE); // 关闭 TX DMA
@@ -129,7 +129,7 @@ void USART2_DMA_DeInit(void)
   * @brief  初始化USART1 GPIO（PA9/PA10：日志）
   * @retval None
   */
-static void USART_DMA_GPIO_Init(void)
+static void USART_DMA_GPIO_Init(void) /* 初始化USART1 GPIO（PA9/PA10：日志）。 */
 {
     GPIO_InitTypeDef GPIO_InitStructure; // GPIO 配置结构体
     
@@ -149,7 +149,7 @@ static void USART_DMA_GPIO_Init(void)
     * @brief  初始化USART2 GPIO（PB10/PB11：屏幕，使用USART3外设）
     * @retval None
     */
-static void USART2_DMA_GPIO_Init(void)
+static void USART2_DMA_GPIO_Init(void) /* 初始化USART2 GPIO（PB10/PB11：屏幕，使用USART3外设）。 */
 {
     GPIO_InitTypeDef GPIO_InitStructure; // GPIO 配置结构体
 
@@ -170,7 +170,7 @@ static void USART2_DMA_GPIO_Init(void)
   * @param  baudrate: 波特率
   * @retval None
   */
-static void USART_DMA_USART_Init(uint32_t baudrate)
+static void USART_DMA_USART_Init(uint32_t baudrate) /* 初始化USART1（日志）。 */
 {
     USART_InitTypeDef USART_InitStructure; // USART 配置结构体
     
@@ -196,7 +196,7 @@ static void USART_DMA_USART_Init(uint32_t baudrate)
     * @param  baudrate: 波特率
     * @retval None
     */
-static void USART2_DMA_USART_Init(uint32_t baudrate)
+static void USART2_DMA_USART_Init(uint32_t baudrate) /* 初始化USART2 (USART3外设，屏幕)。 */
 {
     USART_InitTypeDef USART_InitStructure; // USART3 配置结构体
 
@@ -221,7 +221,7 @@ static void USART2_DMA_USART_Init(uint32_t baudrate)
   * @brief  初始化USART1 DMA（日志）
   * @retval None
   */
-static void USART_DMA_DMA_Init(void)
+static void USART_DMA_DMA_Init(void) /* 初始化USART1 DMA（日志）。 */
 {
     DMA_InitTypeDef DMA_InitStructure; // DMA 配置结构体
     
@@ -273,7 +273,7 @@ static void USART_DMA_DMA_Init(void)
     * @brief  初始化USART2 DMA（屏幕）
     * @retval None
     */
-static void USART2_DMA_DMA_Init(void)
+static void USART2_DMA_DMA_Init(void) /* 初始化USART2 DMA（屏幕）。 */
 {
     DMA_InitTypeDef DMA_InitStructure; // DMA 配置结构体
 
@@ -325,7 +325,7 @@ static void USART2_DMA_DMA_Init(void)
   * @brief  初始化USART1 NVIC中断（日志）
   * @retval None
   */
-static void USART_DMA_NVIC_Init(void)
+static void USART_DMA_NVIC_Init(void) /* 初始化USART1 NVIC中断（日志）。 */
 {
     NVIC_InitTypeDef NVIC_InitStructure; // NVIC 配置结构体
     
@@ -347,7 +347,7 @@ static void USART_DMA_NVIC_Init(void)
     * @brief  初始化USART2 NVIC中断（屏幕）
     * @retval None
     */
-static void USART2_DMA_NVIC_Init(void)
+static void USART2_DMA_NVIC_Init(void) /* 初始化USART2 NVIC中断（屏幕）。 */
 {
     NVIC_InitTypeDef NVIC_InitStructure; // NVIC 配置结构体
 
@@ -375,7 +375,7 @@ static void USART2_DMA_NVIC_Init(void)
   * @param  length: 数据长度
   * @retval USART_DMA_Status
   */
-USART_DMA_Status USART_DMA_SendData(uint8_t *data, uint16_t length)
+USART_DMA_Status USART_DMA_SendData(uint8_t *data, uint16_t length) /* 通过DMA发送数据。 */
 {
     uint32_t timeout = 1000000UL;                                    // 忙等次数上限，实际耗时受编译优化与中断影响
 
@@ -388,7 +388,7 @@ USART_DMA_Status USART_DMA_SendData(uint8_t *data, uint16_t length)
     }
     
     // 等待之前的发送完成（带超时保护）
-    while (husart1.tx_busy)
+    while (husart1.tx_busy) /* 等待之前的发送完成（带超时保护）。 */
     {
         if (--timeout == 0U)                                        // 超时退出，避免死循环
         {
@@ -425,7 +425,7 @@ USART_DMA_Status USART_DMA_SendData(uint8_t *data, uint16_t length)
   * @param  str: 要发送的字符串
   * @retval USART_DMA_Status
   */
-USART_DMA_Status USART_DMA_SendString(const char *str)
+USART_DMA_Status USART_DMA_SendString(const char *str) /* 通过 USART1 发送以 NUL 结束的调试或日志字符串。 */
 {
     uint16_t length = 0; // 字符串长度
     
@@ -455,7 +455,7 @@ USART_DMA_Status USART_DMA_SendString(const char *str)
   * @param  length: 数据长度
   * @retval USART_DMA_Status
   */
-USART_DMA_Status USART_DMA_SendData_IT(uint8_t *data, uint16_t length)
+USART_DMA_Status USART_DMA_SendData_IT(uint8_t *data, uint16_t length) /* 中断方式发送数据（非阻塞）。 */
 {
     if (husart1.tx_busy) { // 正在发送
         return USART_DMA_BUSY; // 返回忙
@@ -464,7 +464,7 @@ USART_DMA_Status USART_DMA_SendData_IT(uint8_t *data, uint16_t length)
     return USART_DMA_SendData(data, length); // 直接调用发送
 }
 
-USART_DMA_Status USART2_DMA_SendData(uint8_t *data, uint16_t length)
+USART_DMA_Status USART2_DMA_SendData(uint8_t *data, uint16_t length) /* 串口 2 DMA 发送 数据。 */
 {
     uint32_t timeout = 1000000UL;                                    // 忙等次数上限，实际耗时受编译优化与中断影响
 
@@ -477,7 +477,7 @@ USART_DMA_Status USART2_DMA_SendData(uint8_t *data, uint16_t length)
     }
 
     // 等待之前的发送完成（带超时保护）
-    while (husart2.tx_busy)
+    while (husart2.tx_busy) /* 等待之前的发送完成（带超时保护）。 */
     {
         if (--timeout == 0U)                                        // 超时退出，避免死循环
         {
@@ -509,7 +509,7 @@ USART_DMA_Status USART2_DMA_SendData(uint8_t *data, uint16_t length)
     return USART_DMA_OK; // 返回成功
 }
 
-USART_DMA_Status USART2_DMA_SendString(const char *str)
+USART_DMA_Status USART2_DMA_SendString(const char *str) /* 串口 2 DMA 发送 String。 */
 {
     uint16_t length = 0; // 字符串长度
 
@@ -533,7 +533,7 @@ USART_DMA_Status USART2_DMA_SendString(const char *str)
     return USART2_DMA_SendData((uint8_t *)str, length); // 发送字符串
 }
 
-USART_DMA_Status USART2_DMA_SendData_IT(uint8_t *data, uint16_t length)
+USART_DMA_Status USART2_DMA_SendData_IT(uint8_t *data, uint16_t length) /* 串口 2 DMA 发送 数据 IT。 */
 {
     if (husart2.tx_busy) { // 正在发送
         return USART_DMA_BUSY; // 返回忙
@@ -551,7 +551,7 @@ USART_DMA_Status USART2_DMA_SendData_IT(uint8_t *data, uint16_t length)
   * @param  max_len: 最大接收长度
   * @retval 实际读取的数据长度
   */
-uint16_t USART_DMA_ReceiveData(uint8_t *buffer, uint16_t max_len)
+uint16_t USART_DMA_ReceiveData(uint8_t *buffer, uint16_t max_len) /* 读取接收到的数据。 */
 {
     uint16_t read_count = 0; // 实际读取数
     uint16_t available = USART_DMA_Available(); // 可用字节数
@@ -575,7 +575,7 @@ uint16_t USART_DMA_ReceiveData(uint8_t *buffer, uint16_t max_len)
     return read_count; // 返回读取数
 }
 
-uint16_t USART2_DMA_ReceiveData(uint8_t *buffer, uint16_t max_len)
+uint16_t USART2_DMA_ReceiveData(uint8_t *buffer, uint16_t max_len) /* 串口 2 DMA 接收 数据。 */
 {
     uint16_t read_count = 0; // 实际读取数
     uint16_t available = USART2_DMA_Available(); // 可用字节数
@@ -600,7 +600,7 @@ uint16_t USART2_DMA_ReceiveData(uint8_t *buffer, uint16_t max_len)
   * @brief  获取可用的接收数据字节数
   * @retval 可用的字节数
   */
-uint16_t USART_DMA_Available(void)
+uint16_t USART_DMA_Available(void) /* 获取可用的接收数据字节数。 */
 {
     // 获取DMA当前的传输计数
     uint16_t dma_count = USART_DMA_RX_CHANNEL->CNDTR; // 读取计数器
@@ -618,7 +618,7 @@ uint16_t USART_DMA_Available(void)
     return husart1.rx_available; // 返回可用字节
 }
 
-uint16_t USART2_DMA_Available(void)
+uint16_t USART2_DMA_Available(void) /* 查询屏幕串口当前未读的 DMA 接收字节数。 */
 {
     uint16_t dma_count = USART2_DMA_RX_CHANNEL->CNDTR; // 读取计数器
     uint16_t dma_received = USART_DMA_RX_BUFFER_SIZE - dma_count; // 当前 DMA 写入位置
@@ -636,7 +636,7 @@ uint16_t USART2_DMA_Available(void)
   * @brief  清空接收缓冲区
   * @retval None
   */
-void USART_DMA_ClearRxBuffer(void)
+void USART_DMA_ClearRxBuffer(void) /* 清空接收缓冲区。 */
 {
     // 禁用DMA接收通道
     DMA_Cmd(USART_DMA_RX_CHANNEL, DISABLE); // 关闭 RX DMA
@@ -653,7 +653,7 @@ void USART_DMA_ClearRxBuffer(void)
     DMA_Cmd(USART_DMA_RX_CHANNEL, ENABLE); // 使能 RX DMA
 }
 
-void USART2_DMA_ClearRxBuffer(void)
+void USART2_DMA_ClearRxBuffer(void) /* 重置屏幕串口的接收缓冲读写进度，丢弃旧数据。 */
 {
     DMA_Cmd(USART2_DMA_RX_CHANNEL, DISABLE); // 关闭 RX DMA
 
@@ -670,7 +670,7 @@ void USART2_DMA_ClearRxBuffer(void)
   * @brief  读取单个字节
   * @retval 读取的字节，如果没有数据返回0
   */
-uint8_t USART_DMA_ReadByte(void)
+uint8_t USART_DMA_ReadByte(void) /* 读取单个字节。 */
 {
     uint8_t data = 0; // 返回字节
     
@@ -683,7 +683,7 @@ uint8_t USART_DMA_ReadByte(void)
     return data; // 返回读取值
 }
 
-uint8_t USART2_DMA_ReadByte(void)
+uint8_t USART2_DMA_ReadByte(void) /* 从屏幕串口的 DMA 接收区取出一个未读字节。 */
 {
     uint8_t data = 0; // 返回字节
 
@@ -702,7 +702,7 @@ uint8_t USART2_DMA_ReadByte(void)
   * @param  position: 找到的位置（可选）
   * @retval 是否找到
   */
-bool USART_DMA_FindString(const char *str, uint16_t *position)
+bool USART_DMA_FindString(const char *str, uint16_t *position) /* 在接收缓冲区中查找字符串。 */
 {
     uint16_t available = USART_DMA_Available(); // 可用字节数
     uint16_t str_len = strlen(str); // 字符串长度
@@ -734,7 +734,7 @@ bool USART_DMA_FindString(const char *str, uint16_t *position)
     return false; // 未找到
 }
 
-bool USART2_DMA_FindString(const char *str, uint16_t *position)
+bool USART2_DMA_FindString(const char *str, uint16_t *position) /* 串口 2 DMA Find String。 */
 {
     uint16_t available = USART2_DMA_Available(); // 可用字节数
     uint16_t str_len = strlen(str); // 字符串长度
@@ -771,12 +771,12 @@ bool USART2_DMA_FindString(const char *str, uint16_t *position)
   * @brief  检查USART1发送是否忙
   * @retval true-忙, false-空闲
   */
-bool USART_DMA_IsTxBusy(void)
+bool USART_DMA_IsTxBusy(void) /* 检查USART1发送是否忙。 */
 {
     return husart1.tx_busy; // 返回发送忙状态
 }
 
-bool USART2_DMA_IsTxBusy(void)
+bool USART2_DMA_IsTxBusy(void) /* 串口 2 DMA Is 发送 忙碌。 */
 {
     return husart2.tx_busy; // 返回发送忙状态
 }
@@ -785,12 +785,12 @@ bool USART2_DMA_IsTxBusy(void)
   * @brief  检查USART1接收是否空闲
   * @retval 初始化设为 true，RX DMA 整圈中断清零，当前未按线路空闲回置
   */
-bool USART_DMA_IsRxIdle(void)
+bool USART_DMA_IsRxIdle(void) /* 检查USART1接收是否空闲。 */
 {
     return husart1.rx_idle; // 返回接收空闲状态
 }
 
-bool USART2_DMA_IsRxIdle(void)
+bool USART2_DMA_IsRxIdle(void) /* 串口 2 DMA Is 接收 空闲。 */
 {
     return husart2.rx_idle; // 返回接收空闲状态
 }
@@ -799,12 +799,12 @@ bool USART2_DMA_IsRxIdle(void)
   * @brief  获取 USART1 单次 DMA 发送的缓冲容量。
   * @retval 固定返回缓冲区大小，发送忙状态用 IsTxBusy 查询
   */
-uint16_t USART_DMA_GetTxBufferFree(void)
+uint16_t USART_DMA_GetTxBufferFree(void) /* 获取 USART1 单次 DMA 发送的缓冲容量。 */
 {
     return USART_DMA_TX_BUFFER_SIZE; // 固定容量，未扣除正在发送的字节
 }
 
-uint16_t USART2_DMA_GetTxBufferFree(void)
+uint16_t USART2_DMA_GetTxBufferFree(void) /* 串口 2 DMA 读取 发送 缓冲区 Free。 */
 {
     return USART_DMA_TX_BUFFER_SIZE; // 固定容量，未扣除正在发送的字节
 }
@@ -813,12 +813,12 @@ uint16_t USART2_DMA_GetTxBufferFree(void)
   * @brief  获取USART1接收缓冲区已使用空间
   * @retval 已使用字节数
   */
-uint16_t USART_DMA_GetRxBufferUsed(void)
+uint16_t USART_DMA_GetRxBufferUsed(void) /* 获取USART1接收缓冲区已使用空间。 */
 {
     return USART_DMA_Available(); // 返回接收缓冲已用量
 }
 
-uint16_t USART2_DMA_GetRxBufferUsed(void)
+uint16_t USART2_DMA_GetRxBufferUsed(void) /* 串口 2 DMA 读取 接收 缓冲区 Used。 */
 {
     return USART2_DMA_Available(); // 返回接收缓冲已用量
 }
@@ -830,12 +830,12 @@ uint16_t USART2_DMA_GetRxBufferUsed(void)
   * @param  callback: 回调函数指针
   * @retval None
   */
-void USART_DMA_SetRxCallback(void (*callback)(uint8_t *data, uint16_t length))
+void USART_DMA_SetRxCallback(void (*callback)(uint8_t *data, uint16_t length)) /* 设置USART1接收回调函数。 */
 {
     husart1.rx_callback = callback; // 设置接收回调
 }
 
-void USART2_DMA_SetRxCallback(void (*callback)(uint8_t *data, uint16_t length))
+void USART2_DMA_SetRxCallback(void (*callback)(uint8_t *data, uint16_t length)) /* 注册屏幕串口接收回调，在 DMA 通知时提示主循环抽取数据。 */
 {
     husart2.rx_callback = callback; // 设置接收回调
 }
@@ -845,12 +845,12 @@ void USART2_DMA_SetRxCallback(void (*callback)(uint8_t *data, uint16_t length))
   * @param  callback: 回调函数指针
   * @retval None
   */
-void USART_DMA_SetTxCompleteCallback(void (*callback)(void))
+void USART_DMA_SetTxCompleteCallback(void (*callback)(void)) /* 设置USART1发送完成回调函数。 */
 {
     husart1.tx_complete_callback = callback; // 设置发送完成回调
 }
 
-void USART2_DMA_SetTxCompleteCallback(void (*callback)(void))
+void USART2_DMA_SetTxCompleteCallback(void (*callback)(void)) /* 串口 2 DMA 设置 发送 完成 Callback。 */
 {
     husart2.tx_complete_callback = callback; // 设置发送完成回调
 }
@@ -863,7 +863,7 @@ void USART2_DMA_SetTxCompleteCallback(void (*callback)(void))
   * @brief  USART1 DMA发送中断处理函数
   * @retval None
   */
-void USART_DMA_TX_IRQHandler(void)
+void USART_DMA_TX_IRQHandler(void) /* USART1 DMA发送中断处理函数。 */
 {
     if (DMA_GetITStatus(USART_DMA_TX_TC_FLAG) != RESET) { // 检查中断
         // 清除中断标志
@@ -882,7 +882,7 @@ void USART_DMA_TX_IRQHandler(void)
     }
 }
 
-void USART2_DMA_TX_IRQHandler(void)
+void USART2_DMA_TX_IRQHandler(void) /* 串口 2 DMA 发送 中断 处理入口。 */
 {
     if (DMA_GetITStatus(USART2_DMA_TX_TC_FLAG) != RESET) { // 检查中断
         DMA_ClearITPendingBit(USART2_DMA_TX_TC_FLAG); // 清标志
@@ -901,7 +901,7 @@ void USART2_DMA_TX_IRQHandler(void)
   * @brief  USART1 DMA接收中断处理函数
   * @retval None
   */
-void USART_DMA_RX_IRQHandler(void)
+void USART_DMA_RX_IRQHandler(void) /* USART1 DMA接收中断处理函数。 */
 {
     if (DMA_GetITStatus(USART_DMA_RX_TC_FLAG) != RESET) { // 检查 TC 中断
         // 清除中断标志
@@ -925,7 +925,7 @@ void USART_DMA_RX_IRQHandler(void)
     }
 }
 
-void USART2_DMA_RX_IRQHandler(void)
+void USART2_DMA_RX_IRQHandler(void) /* 串口 2 DMA 接收 中断 处理入口。 */
 {
     if (DMA_GetITStatus(USART2_DMA_RX_TC_FLAG) != RESET) { // 检查 TC 中断
         DMA_ClearITPendingBit(USART2_DMA_RX_TC_FLAG); // 清标志
@@ -947,24 +947,24 @@ void USART2_DMA_RX_IRQHandler(void)
 
 /* =============== 辅助函数 =============== */
 
-void UartInit(uint32_t Baudrate)
+void UartInit(uint32_t Baudrate) /* 串口 初始化。 */
 {
     USART2_DMA_Init(Baudrate); // 初始化 USART3 屏幕口
 }
 
 /* 厂商 HMI 兼容入口。每字节启动一次 DMA 并忙等该次 DMA 完成。 */
-void SendChar(unsigned char t)
+void SendChar(unsigned char t) /* 将一个字节交给屏幕串口发送。 */
 {
     uint32_t timeout = 1000000UL;                                    // 超时计数器
     uint8_t temp = (uint8_t)t; // 转换为 uint8_t
     USART2_DMA_SendData(&temp, 1); // 发送单字节到 USART3 屏幕口
-    while (USART2_DMA_IsTxBusy())
+    while (USART2_DMA_IsTxBusy()) /* 在 「USART2_DMA_IsTxBusy()」 成立期间重复处理循环体。 */
     {
         if (--timeout == 0U)                                          // 超时保护
         {
-            DMA_Cmd(USART2_DMA_TX_CHANNEL, DISABLE);
-            husart2.tx_busy = false;
-            break;
+            DMA_Cmd(USART2_DMA_TX_CHANNEL, DISABLE); /* 关闭 USART2_DMA_TX_CHANNEL，使相应硬件进入请求的工作状态。 */
+            husart2.tx_busy = false; /* 将发送 忙碌 更新为 失败或条件未成立（false）。 */
+            break; /* 结束本分支或当前循环，避免继续执行后面的分支或迭代。 */
         }
     }
 }

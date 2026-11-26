@@ -1,5 +1,5 @@
-#ifndef __COFFEMAKE_H
-#define __COFFEMAKE_H
+#ifndef __COFFEMAKE_H /* ½öÔÚÉĞÎ´¶¨Òå __COFFEMAKE_HÊ±±àÒëÏÂ·½´úÂë¡£ */
+#define __COFFEMAKE_H /* ¶¨Òå __COFFEMAKE_H£¬¹©Í·ÎÄ¼ş·ÀÖØ°üº¬»òºóĞøÌõ¼ş±àÒë¼ì²é¡£ */
 
 /* ÖÜÆÚÈÎÎñ¶ÁÈ¡¹²ÏíÒºÎ»»º´æ£¬¸ù¾İ¸÷×ÔÆô¶¯±êÖ¾ÍÆ½ø¡£ÅÅÒºÈÎÎñ½áÊø»ò±Ã³¬Ê±¾ùÇå¶ÔÓ¦±êÖ¾¡£ */
 void Coffee_Task(void);                                               // İÍÈ¡Á÷³Ì100msÈÎÎñÈë¿Ú£¨½øË®+İÍÈ¡£©
@@ -9,4 +9,4 @@ void Coffee_ResetState(void);                                         // ¸´Î»İÍÈ
 void Coffee_SetParam(uint16_t control_id, uint8_t *str);              // ¿Ø¼ş 1 ÎªÉıÊı¡¢2 Îª·ÖÖÓ£¬str ĞëÒÔ NUL ½áÎ²
 void Coffee_SetDrainMode(uint8_t item);                               // Ô­Ñù±£´æÑ¡Ïî£¬Á÷³Ì½ö½« 1 µ±×÷ÊÖ¶¯
 
-#endif
+#endif /* ½áÊøÕâÒ»×éÌõ¼ş±àÒë£¬ºóÃæµÄ´úÂë»Ö¸´Íâ²ã±àÒëÌõ¼ş¡£ */

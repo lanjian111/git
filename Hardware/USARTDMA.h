@@ -8,7 +8,7 @@
 
 #ifdef __cplusplus // C++ 兼容判断
 extern "C" { // C 语言链接
-#endif // __cplusplus
+#endif  /* 结束这一组条件编译，后面的代码恢复外层编译条件。 */ // __cplusplus
 
 
 /* =============== 配置参数定义 =============== */
@@ -160,25 +160,25 @@ void USART2_DMA_RX_IRQHandler(void); // USART2 RX DMA 中断处理
 // (USART_DMA_Printf / USART2_DMA_Printf 已移除，使用 EasyLogger 替代)
 
 // HMI兼容接口（原hmi_user_uart）
-void UartInit(uint32_t Baudrate);
-void SendChar(unsigned char t);
+void UartInit(uint32_t Baudrate); /* 声明接口，HMI兼容接口（原hmi_user_uart）。 */
+void SendChar(unsigned char t); /* 声明接口，将一个字节交给屏幕串口发送。 */
 
 /* =============== 宏函数定义 =============== */
 
 // 快速发送单个字符
-#define USART_DMA_PutChar(ch) \
-    do { \
-        uint8_t temp = (uint8_t)(ch); \
-        USART_DMA_SendData(&temp, 1); \
+#define USART_DMA_PutChar(ch)  /* 定义 USART_DMA_PutChar(ch) 的分支入口，展开后不产生本步骤的代码。 */ \
+    do {  /* 把宏的多个步骤包成单条语句，便于安全地放在条件分支中调用。 */ \
+        uint8_t temp = (uint8_t)(ch);  /* 定义temp，将temp 更新为 「(uint8_t)(ch)」。 */ \
+        USART_DMA_SendData(&temp, 1);  /* 调用 USART_DMA_SendData 处理 「&temp, 1」。 */ \
     } while(0) // 发送单字节
 
 // 检查是否有数据可读
 #define USART_DMA_HasData()          (USART_DMA_Available() > 0) // 判断可读
 
 // 忙等 DMA 发送结束，依赖中断清忙状态
-#define USART_DMA_WaitTxComplete() \
-    do { \
-        while(USART_DMA_IsTxBusy()); \
+#define USART_DMA_WaitTxComplete()  /* 定义 USART_DMA_WaitTxComplete() 的分支入口，展开后不产生本步骤的代码。 */ \
+    do {  /* 把宏的多个步骤包成单条语句，便于安全地放在条件分支中调用。 */ \
+        while(USART_DMA_IsTxBusy());  /* 持续读状态直到 「USART_DMA_IsTxBusy()」 不再成立，通过空循环等待硬件就绪。 */ \
     } while(0) // DMA 完成时最后一个字节可能仍在串口移位输出
 
 

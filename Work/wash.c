@@ -1,7 +1,7 @@
-#include "stm32f10x.h"
-#include "delay.h"
-#include "LED.h"
-#include "GPIO.h"
+#include "stm32f10x.h" /* 使用 STM32F1 的寄存器、外设类型和基于工程配置启用的驱动接口。 */
+#include "delay.h" /* 使用 SysTick 毫秒计时和短时延时接口。 */
+#include "LED.h" /* 取得指示灯初始化及状态控制接口。 */
+#include "GPIO.h" /* 取得板级泵阀控制和液位采样接口。 */
 #include "flag.h"                                                   // 引入流程标志位定义
 #include "wash.h"                                                   // 引入清洗流程接口声明
 #include "coffemake.h"                                              // 引入排水函数声明
@@ -10,7 +10,7 @@
 /* 两段清洗共用一套顺序。进水期间 ADC 超过泵阈值后允许循环，
  * 到目标后浸泡 60 秒，再经过两次 12 秒切换。排液交给 Coffee_DrainWaste_Task。
  * 液位是 ADC 原始值，所有定时都按 SysTick 毫秒差判断，由 100 ms 任务推进。 */
-#define LOG_TAG                         "wash"
+#define LOG_TAG                         "wash" /* 指定日志标签 "wash"，便于在串口输出中定位本模块。 */
 
 #define WASH_LEVEL_LOW_THRESHOLD              100U                    // 历史保留，实际排液阈值由 Coffee_DrainWaste_Task 使用
 #define WASH_LEVEL_PUMP_ON_THRESHOLD          1000U                   // 允许开启循环泵的液位阈值
@@ -27,7 +27,7 @@
 #define WASH_DRAIN_TIMEOUT_MS                 60000UL                 // 历史保留，实际清洗侧等排废液的上限为 90 秒
 #define WASH_LEVEL_DEBOUNCE_COUNT             3U                      // 历史保留，实际清洗进水只判断当前缓存值
 
-typedef enum
+typedef enum /* 定义枚举的取值集合，供相关接口复用。 */
 {
 	WASH_STATE_IDLE = 0,                                              // 空闲状态，等待启动
 	WASH_STATE_INIT,                                                  // 初始化状态，关闭阀泵并开启液位采样
@@ -140,8 +140,8 @@ void Wash_Task(void)                                                 // 每100ms
 			FLAG_CIRCULATION_PUMP_ENABLE = 1;                            // 置位循环泵流程使能标志
 		}
 		/* 计时满 30 秒后，只要本轮 ADC ≤ 1000 即终止，即使此前曾高于 1000。 */
-		if (liquid_level_adc <= WASH_LEVEL_PUMP_ON_THRESHOLD
-		    && delay_expired(g_wash_state_start_ms, WASH_FILL_TIMEOUT_MS))
+		if (liquid_level_adc <= WASH_LEVEL_PUMP_ON_THRESHOLD /* 计时满 30 秒后，只要本轮 ADC ≤ 1000 即终止，即使此前曾高于 1000。 */
+		    && delay_expired(g_wash_state_start_ms, WASH_FILL_TIMEOUT_MS)) /* 把 「&& delay_expired(g_wash_state_start_ms, WASH_FILL_TIMEOUT_MS))」 并入上行的判断，共同决定是否进入分支。 */
 		{
 			FLAG_WASH_START = 0;                                         // 清除启动标志，避免下一周期继续运行
 			log_e("Stage1 fill timeout (30s not reaching 1000)");       // EasyLogger 输出进水超时报错
@@ -149,12 +149,12 @@ void Wash_Task(void)                                                 // 每100ms
 			break;                                                       // 本周期直接结束
 		}
 		/* 整体进水超时保护：从进水开始到达到目标2000的总时长超过120秒则终止 */
-		if (delay_expired(g_wash_state_start_ms, WASH_FILL_TOTAL_TIMEOUT_MS))
+		if (delay_expired(g_wash_state_start_ms, WASH_FILL_TOTAL_TIMEOUT_MS)) /* 以 g_wash_state_start_ms 为起点，比较经过时间是否达到 WASH_FILL_TOTAL_TIMEOUT_MS。 */
 		{
 			FLAG_WASH_START = 0;                                         // 清除启动标志
-			log_e("Water fill total timeout (120s), abort");
-			Wash_ResetState();
-			break;
+			log_e("Water fill total timeout (120s), abort"); /* 以错误级别记录 「"Water fill total timeout (120s), abort"」，便于从日志跟踪当前分支。 */
+			Wash_ResetState(); /* 关闭清洗涉及的泵阀并还原清洗状态，允许下一次重新启动。 */
+			break; /* 结束当前状态分支，本轮其余状态留待后续调用处理。 */
 		}
 		wash_set_pump(FLAG_CIRCULATION_PUMP_ENABLE);                   // 根据使能标志控制循环泵
 
@@ -162,7 +162,7 @@ void Wash_Task(void)                                                 // 每100ms
 		{
 			wash_set_inlet(1);                                           // 保持进水阀开启继续进水
 		}
-		else
+		else /* 前面的条件不满足时执行此分支。 */
 		{
 			wash_set_inlet(0);                                           // 达到目标后关闭进水阀
 			g_wash_state_start_ms = delay_millis();                      // 记录第一段浸泡开始时间
@@ -195,29 +195,29 @@ void Wash_Task(void)                                                 // 每100ms
 		if (delay_expired(g_wash_state_start_ms, WASH_CIRC_TO_PUMP_DELAY_MS)) // 非阻塞判断12秒是否到时
 		{
 			/* 排水交给 Coffee_DrainWaste_Task，清洗侧不再自己开泵 */
-			FLAG_CIRCULATION_PUMP_ENABLE = 0;
+			FLAG_CIRCULATION_PUMP_ENABLE = 0; /* 清零清洗流程的循环泵许可标志，供后续任务判断当前状态。 */
 			wash_set_all_closed();                                       // 清洗侧先关阀泵，排水任务会自己重新开
 			FLAG_DRAIN_WASTE = 1;                                        // 触发排废液任务
 			g_wash_state_start_ms = delay_millis();                      // 记录排水等待开始时间，用于兜底超时
-			wash_change_state(WASH_STATE_STAGE1_LOW_LEVEL_HOLD, "WASH_STATE_STAGE1_LOW_LEVEL_HOLD (wait drain)");
+			wash_change_state(WASH_STATE_STAGE1_LOW_LEVEL_HOLD, "WASH_STATE_STAGE1_LOW_LEVEL_HOLD (wait drain)"); /* 更新到 WASH_STATE_STAGE1_LOW_LEVEL_HOLD 并输出状态日志，后续周期从该状态继续推进。 */
 		}
 		break;                                                          // 本周期结束
 
 	case WASH_STATE_STAGE1_LOW_LEVEL_HOLD:                            // 等待排废液完成
 		/* 排液正常结束和泵超时都清零同一标志，清洗侧据此继续；这里没有单独结果码。 */
-		if (FLAG_DRAIN_WASTE == 0)
+		if (FLAG_DRAIN_WASTE == 0) /* 排液正常结束和泵超时都清零同一标志，清洗侧据此继续；这里没有单独结果码。 */
 		{
-			g_wash_state_start_ms = delay_millis();
-			wash_change_state(WASH_STATE_STAGE1_REFILL_DELAY, "WASH_STATE_STAGE1_REFILL_DELAY");
+			g_wash_state_start_ms = delay_millis(); /* 把当前毫秒节拍保存到 g_wash_state_start_ms，作为之后计算时间差的基准。 */
+			wash_change_state(WASH_STATE_STAGE1_REFILL_DELAY, "WASH_STATE_STAGE1_REFILL_DELAY"); /* 更新到 WASH_STATE_STAGE1_REFILL_DELAY 并输出状态日志，后续周期从该状态继续推进。 */
 		}
 		else if (delay_expired(g_wash_state_start_ms, 90000UL))         // 兜底：90s未完成则强制终止
 		{
-			log_e("Stage1 drain wait timeout (90s), abort wash");
+			log_e("Stage1 drain wait timeout (90s), abort wash"); /* 以错误级别记录 「"Stage1 drain wait timeout (90s), abort wash"」，便于从日志跟踪当前分支。 */
 			FLAG_DRAIN_WASTE = 0;                                        // 强制清零，让排水任务也复位
-			FLAG_WASH_START = 0;
-			Wash_ResetState();
+			FLAG_WASH_START = 0; /* 清零清洗启动标志，供后续任务判断当前状态。 */
+			Wash_ResetState(); /* 关闭清洗涉及的泵阀并还原清洗状态，允许下一次重新启动。 */
 		}
-		break;
+		break; /* 结束当前状态分支，本轮其余状态留待后续调用处理。 */
 
 	case WASH_STATE_STAGE1_REFILL_DELAY:                              // 第一段结束后的等待状态
 		if (delay_expired(g_wash_state_start_ms, WASH_REFILL_DELAY_MS)) // 非阻塞判断12秒是否到时
@@ -234,21 +234,21 @@ void Wash_Task(void)                                                 // 每100ms
 			FLAG_CIRCULATION_PUMP_ENABLE = 1;                            // 置位循环泵流程使能标志
 		}
 		/* 计时满 30 秒后，只要本轮 ADC ≤ 1000 即终止，即使此前曾高于 1000。 */
-		if (liquid_level_adc <= WASH_LEVEL_PUMP_ON_THRESHOLD
-		    && delay_expired(g_wash_state_start_ms, WASH_FILL_TIMEOUT_MS))
+		if (liquid_level_adc <= WASH_LEVEL_PUMP_ON_THRESHOLD /* 计时满 30 秒后，只要本轮 ADC ≤ 1000 即终止，即使此前曾高于 1000。 */
+		    && delay_expired(g_wash_state_start_ms, WASH_FILL_TIMEOUT_MS)) /* 把 「&& delay_expired(g_wash_state_start_ms, WASH_FILL_TIMEOUT_MS))」 并入上行的判断，共同决定是否进入分支。 */
 		{
-			FLAG_WASH_START = 0;
-			log_e("Stage2 fill timeout (30s not reaching 1000)");
-			Wash_ResetState();
-			break;
+			FLAG_WASH_START = 0; /* 清零清洗启动标志，供后续任务判断当前状态。 */
+			log_e("Stage2 fill timeout (30s not reaching 1000)"); /* 以错误级别记录 「"Stage2 fill timeout (30s not reaching 1000)"」，便于从日志跟踪当前分支。 */
+			Wash_ResetState(); /* 关闭清洗涉及的泵阀并还原清洗状态，允许下一次重新启动。 */
+			break; /* 结束当前状态分支，本轮其余状态留待后续调用处理。 */
 		}
 		/* 整体进水超时保护：从进入STAGE2_FILL开始超过120秒则终止 */
-		if (delay_expired(g_wash_state_start_ms, WASH_FILL_TOTAL_TIMEOUT_MS))
+		if (delay_expired(g_wash_state_start_ms, WASH_FILL_TOTAL_TIMEOUT_MS)) /* 以 g_wash_state_start_ms 为起点，比较经过时间是否达到 WASH_FILL_TOTAL_TIMEOUT_MS。 */
 		{
-			FLAG_WASH_START = 0;
-			log_e("Stage2 water fill total timeout (120s), abort");
-			Wash_ResetState();
-			break;
+			FLAG_WASH_START = 0; /* 清零清洗启动标志，供后续任务判断当前状态。 */
+			log_e("Stage2 water fill total timeout (120s), abort"); /* 以错误级别记录 「"Stage2 water fill total timeout (120s), abort"」，便于从日志跟踪当前分支。 */
+			Wash_ResetState(); /* 关闭清洗涉及的泵阀并还原清洗状态，允许下一次重新启动。 */
+			break; /* 结束当前状态分支，本轮其余状态留待后续调用处理。 */
 		}
 		wash_set_pump(FLAG_CIRCULATION_PUMP_ENABLE);                   // 根据使能标志控制循环泵
 
@@ -256,7 +256,7 @@ void Wash_Task(void)                                                 // 每100ms
 		{
 			wash_set_inlet(1);                                           // 保持进水阀开启继续进水
 		}
-		else
+		else /* 前面的条件不满足时执行此分支。 */
 		{
 			wash_set_inlet(0);                                           // 达到目标后关闭进水阀
 			g_wash_state_start_ms = delay_millis();                      // 记录第二段浸泡开始时间
@@ -291,32 +291,32 @@ void Wash_Task(void)                                                 // 每100ms
 			FLAG_CIRCULATION_PUMP_ENABLE = 0;                            // 清洗侧不再自己开泵，交给排水任务
 			wash_set_all_closed();                                       // 清洗侧先关阀泵
 			FLAG_DRAIN_WASTE = 1;                                        // 触发排废液任务
-			g_wash_state_start_ms = delay_millis();
-			wash_change_state(WASH_STATE_STAGE2_DRAIN, "WASH_STATE_STAGE2_DRAIN (wait drain waste)");
+			g_wash_state_start_ms = delay_millis(); /* 把当前毫秒节拍保存到 g_wash_state_start_ms，作为之后计算时间差的基准。 */
+			wash_change_state(WASH_STATE_STAGE2_DRAIN, "WASH_STATE_STAGE2_DRAIN (wait drain waste)"); /* 更新到 WASH_STATE_STAGE2_DRAIN 并输出状态日志，后续周期从该状态继续推进。 */
 		}
-		break;
+		break; /* 结束当前状态分支，本轮其余状态留待后续调用处理。 */
 
 	case WASH_STATE_STAGE2_DRAIN:                                     // 等待排废液标志清零，与第一段使用相同的完成条件
-		if (FLAG_DRAIN_WASTE == 0)
+		if (FLAG_DRAIN_WASTE == 0) /* 当 「FLAG_DRAIN_WASTE == 0」 成立时处理下方分支。 */
 		{
-			g_wash_state_start_ms = delay_millis();
-			wash_change_state(WASH_STATE_STAGE2_LOW_LEVEL_HOLD, "WASH_STATE_STAGE2_LOW_LEVEL_HOLD");
+			g_wash_state_start_ms = delay_millis(); /* 把当前毫秒节拍保存到 g_wash_state_start_ms，作为之后计算时间差的基准。 */
+			wash_change_state(WASH_STATE_STAGE2_LOW_LEVEL_HOLD, "WASH_STATE_STAGE2_LOW_LEVEL_HOLD"); /* 更新到 WASH_STATE_STAGE2_LOW_LEVEL_HOLD 并输出状态日志，后续周期从该状态继续推进。 */
 		}
 		else if (delay_expired(g_wash_state_start_ms, 90000UL))         // 兜底：90s未完成则强制终止
 		{
-			log_e("Stage2 drain wait timeout (90s), abort wash");
+			log_e("Stage2 drain wait timeout (90s), abort wash"); /* 以错误级别记录 「"Stage2 drain wait timeout (90s), abort wash"」，便于从日志跟踪当前分支。 */
 			FLAG_DRAIN_WASTE = 0;                                        // 强制清零，让排水任务也复位
-			FLAG_WASH_START = 0;
-			Wash_ResetState();
+			FLAG_WASH_START = 0; /* 清零清洗启动标志，供后续任务判断当前状态。 */
+			Wash_ResetState(); /* 关闭清洗涉及的泵阀并还原清洗状态，允许下一次重新启动。 */
 		}
-		break;
+		break; /* 结束当前状态分支，本轮其余状态留待后续调用处理。 */
 
 	case WASH_STATE_STAGE2_LOW_LEVEL_HOLD:                            // 从排液标志清零起等待 12 秒
 		if (delay_expired(g_wash_state_start_ms, WASH_REFILL_DELAY_MS)) // 等待12秒
 		{
-			wash_change_state(WASH_STATE_STAGE2_FINISH_DELAY, "WASH_STATE_STAGE2_FINISH_DELAY");
+			wash_change_state(WASH_STATE_STAGE2_FINISH_DELAY, "WASH_STATE_STAGE2_FINISH_DELAY"); /* 更新到 WASH_STATE_STAGE2_FINISH_DELAY 并输出状态日志，后续周期从该状态继续推进。 */
 		}
-		break;
+		break; /* 结束当前状态分支，本轮其余状态留待后续调用处理。 */
 
 	case WASH_STATE_STAGE2_FINISH_DELAY:                              // 沿用同一时间戳，通常在进入本状态的下一轮收尾
 		if (delay_expired(g_wash_state_start_ms, WASH_REFILL_DELAY_MS)) // 非阻塞判断12秒是否到时

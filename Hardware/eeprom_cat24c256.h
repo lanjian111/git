@@ -1,7 +1,7 @@
-#ifndef __EEPROM_CAT24C256_H
-#define __EEPROM_CAT24C256_H
+#ifndef __EEPROM_CAT24C256_H /* ½öÔÚÉĞÎ´¶¨Òå __EEPROM_CAT24C256_HÊ±±àÒëÏÂ·½´úÂë¡£ */
+#define __EEPROM_CAT24C256_H /* ¶¨Òå __EEPROM_CAT24C256_H£¬¹©Í·ÎÄ¼ş·ÀÖØ°üº¬»òºóĞøÌõ¼ş±àÒë¼ì²é¡£ */
 
-#include "sys.h"
+#include "sys.h" /* È¡µÃÖĞ¶ÏÅäÖÃºÍÏµÍ³»ù´¡ÀàĞÍÉùÃ÷¡£ */
 
 /*==========================================================================
  * CAT24C256 EEPROM Çı¶¯ (32KB, I2C, 64×Ö½Ú/Ò³)
@@ -25,20 +25,20 @@
 #define CAT24C256_WRITE_CYCLE_MS 5U         /* ÄÚ²¿Ğ´ÈëÖÜÆÚ: 5ms                      */
 
 /* --- ×´Ì¬»ú×´Ì¬ --- */
-typedef enum {
+typedef enum { /* ¶¨ÒåÃ¶¾ÙµÄÈ¡Öµ¼¯ºÏ£¬¹©Ïà¹Ø½Ó¿Ú¸´ÓÃ¡£ */
     EEPROM_STATE_IDLE       = 0,    /* ¿ÕÏĞ£¬¿ÉÒÔ·¢ÆğĞÂ²Ù×÷                          */
     EEPROM_STATE_SEND_PAGE  = 1,    /* Ò³Êı¾İÒÑ·¢ËÍ£¬ÏÂ´ÎÈÎÎñµ÷ÓÃÊ±¿ªÊ¼¼ÆÊ±¡£ */
     EEPROM_STATE_WAIT_WRITE = 2,    /* µÈ´ı EEPROM ÄÚ²¿Ğ´ÈëÍê³É (5ms)                */
     EEPROM_STATE_DONE       = 3,    /* ²Ù×÷ÒÑÍê³É                                    */
     EEPROM_STATE_NACK       = 4     /* I2C ÎŞÓ¦´ğ£¬Éè±¸Òì³£                          */
-} EEPROM_State_t;
+} EEPROM_State_t; /* ÎªÉÏÊö¶¨ÒåÃüÃûÎª EEPROM_State_t£¬±ãÓÚÔÚÉùÃ÷ÖĞÒıÓÃ¡£ */
 
 /* --- ²Ù×÷½á¹û --- */
-typedef enum {
+typedef enum { /* ¶¨ÒåÃ¶¾ÙµÄÈ¡Öµ¼¯ºÏ£¬¹©Ïà¹Ø½Ó¿Ú¸´ÓÃ¡£ */
     EEPROM_OK       = 0,    /* ²ÎÊıÒÑ½ÓÊÜÇÒ³¢ÊÔ·¢ËÍµÚÒ»Ò³£¬Êµ¼Ê½á¹ûÓÃ GetState ²éÑ¯¡£ */
     EEPROM_BUSY     = 1,    /* Çı¶¯´¦ÓÚ·Ç IDLE£¬°üÀ¨Î´Çå³ıµÄ DONE/NACK¡£ */
     EEPROM_ERROR    = 2     /* ²ÎÊı´íÎó (µØÖ·Ô½½ç/³¤¶ÈÎªÁã)                        */
-} EEPROM_Result_t;
+} EEPROM_Result_t; /* ÎªÉÏÊö¶¨ÒåÃüÃûÎª EEPROM_Result_t£¬±ãÓÚÔÚÉùÃ÷ÖĞÒıÓÃ¡£ */
 
 /*==========================================================================
  * ³õÊ¼»¯
@@ -50,23 +50,23 @@ void EEPROM_Init(void);                                 /* ³õÊ¼»¯ I2C µ×²ãºÍ×´Ì¬
  * ReadBuffer ´ËÊ±²»Ğ´Êä³ö¡£ÓÃ EEPROM_ReadHadNack Çø·Ö¡£len Îª 0 Ê±±£ÁôÉÏ´Î±êÖ¾¡£
  *==========================================================================*/
 uint8_t  EEPROM_ReadByte(uint16_t addr);                /* ¶ÁÈ¡µ¥×Ö½Ú                  */
-void     EEPROM_ReadBuffer(uint16_t addr,
-                           uint8_t *buf,
+void     EEPROM_ReadBuffer(uint16_t addr, /* ÉùÃ÷½Ó¿Ú£¬EEPROM ¶ÁÈ¡ »º³åÇø¡£ */
+                           uint8_t *buf, /* ¶¨Òå»º³åÇø×Ö¶Î£¬¹©Õâ×éÅäÖÃ»òÊı¾İ½á¹¹Ê¹ÓÃ¡£ */
                            uint16_t len);               /* Á¬Ğø¶ÁÈ¡ len ×Ö½Úµ½ buf     */
 
 /*==========================================================================
  * Ğ´Èë½Ó¿ÚÏÈÍ¬²½·¢ËÍµÚÒ»Ò³£¬Ğ´ÖÜÆÚµÈ´ıºÍºóĞøÒ³ÓÉ EEPROM_Task ÍÆ½ø¡£
  * ¿çÒ³Ğ´ÈëÆÚ¼ä±£ÁôÔ´»º³åÇø¡£Ö»ÓĞ IDLE ½ÓÊÕĞÂĞ´ÈëÇëÇó¡£
  *==========================================================================*/
-EEPROM_Result_t EEPROM_WriteByte(uint16_t addr,
+EEPROM_Result_t EEPROM_WriteByte(uint16_t addr, /* ÉùÃ÷½Ó¿Ú£¬EEPROM Ğ´Èë ×Ö½Ú¡£ */
                                   uint8_t data);        /* Òì²½Ğ´Èëµ¥×Ö½Ú              */
 
-EEPROM_Result_t EEPROM_WritePage(uint16_t addr,
-                                  const uint8_t *buf,
+EEPROM_Result_t EEPROM_WritePage(uint16_t addr, /* ÉùÃ÷½Ó¿Ú£¬EEPROM Ğ´Èë Page¡£ */
+                                  const uint8_t *buf, /* ¶¨Òå»º³åÇø×Ö¶Î£¬¹©Õâ×éÅäÖÃ»òÊı¾İ½á¹¹Ê¹ÓÃ¡£ */
                                   uint16_t len);        /* Òì²½Ğ´ÈëÒ»Ò³ (len ¡Ü 64)     */
 
-EEPROM_Result_t EEPROM_WriteBuffer(uint16_t addr,
-                                    const uint8_t *buf,
+EEPROM_Result_t EEPROM_WriteBuffer(uint16_t addr, /* ÉùÃ÷½Ó¿Ú£¬EEPROM Ğ´Èë »º³åÇø¡£ */
+                                    const uint8_t *buf, /* ¶¨Òå»º³åÇø×Ö¶Î£¬¹©Õâ×éÅäÖÃ»òÊı¾İ½á¹¹Ê¹ÓÃ¡£ */
                                     uint16_t len);      /* Òì²½Ğ´ÈëÈÎÒâ³¤¶È (×Ô¶¯²ğÒ³)  */
 
 /*==========================================================================
@@ -78,4 +78,4 @@ uint8_t       EEPROM_IsIdle(void);                      /* ÊÇ·ñ¿ÕÏĞ (¿É·¢ÆğĞÂ²Ù×
 void          EEPROM_ClearState(void);                  /* Çå³ı DONE/NACK ×´Ì¬»Øµ½ IDLE */
 uint8_t       EEPROM_ReadHadNack(void);                 /* ÉÏ´Î¶ÁÈ¡ÊÇ·ñÓöµ½ NACK         */
 
-#endif /* __EEPROM_CAT24C256_H */
+#endif /* __EEPROM_CAT24C256_H */ /* ½áÊøÕâÒ»×éÌõ¼ş±àÒë£¬ºóÃæµÄ´úÂë»Ö¸´Íâ²ã±àÒëÌõ¼ş¡£ */

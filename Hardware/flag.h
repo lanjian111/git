@@ -1,5 +1,5 @@
-#ifndef __FLAG_H
-#define __FLAG_H
+#ifndef __FLAG_H /* 仅在尚未定义 __FLAG_H时编译下方代码。 */
+#define __FLAG_H /* 定义 __FLAG_H，供头文件防重包含或后续条件编译检查。 */
 
 #include <stdint.h>                                              // 显式包含 uint8_t 类型定义，避免依赖外部包含顺序
 
@@ -19,13 +19,13 @@ extern volatile uint8_t FLAG_DRAIN_WASTE;                // 排废液流程启动标志
 extern volatile uint8_t FLAG_DRAIN_BREW;                 // 排萃取液流程启动标志
 
 /* 主循环轮询入口，有待处理的 100 ms 标志时执行一轮周期任务。 */
-void FLAG_100MS_Execute(void);
+void FLAG_100MS_Execute(void); /* 声明接口，消费待处理的 100 ms 标志，依次运行采样和业务状态机。 */
 
 
-void FLAG_100MS_Execute(void);
+void FLAG_100MS_Execute(void); /* 声明接口，消费待处理的 100 ms 标志，依次运行采样和业务状态机。 */
 
 
 
 
-#endif
+#endif /* 结束这一组条件编译，后面的代码恢复外层编译条件。 */
 

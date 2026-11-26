@@ -1,7 +1,7 @@
-#ifndef __SOFT_I2C_H
-#define __SOFT_I2C_H
+#ifndef __SOFT_I2C_H /* 仅在尚未定义 __SOFT_I2C_H时编译下方代码。 */
+#define __SOFT_I2C_H /* 定义 __SOFT_I2C_H，供头文件防重包含或后续条件编译检查。 */
 
-#include "sys.h"
+#include "sys.h" /* 取得中断配置和系统基础类型声明。 */
 
 /*==========================================================================
  * 软件模拟 I2C 底层驱动
@@ -26,4 +26,4 @@ void     SoftI2C_Stop(void);                           /* 发送停止信号 */
 uint8_t  SoftI2C_SendByte(uint8_t data);               /* 发送 1 字节，返回 0=ACK / 1=NACK */
 uint8_t  SoftI2C_ReadByte(uint8_t ack);                /* 读取 1 字节，ack=0 发 ACK，ack=1 发 NACK */
 
-#endif /* __SOFT_I2C_H */
+#endif /* __SOFT_I2C_H */ /* 结束这一组条件编译，后面的代码恢复外层编译条件。 */

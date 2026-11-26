@@ -1,5 +1,5 @@
-#ifndef __GPIO_H
-#define __GPIO_H
+#ifndef __GPIO_H /* 仅在尚未定义 __GPIO_H时编译下方代码。 */
+#define __GPIO_H /* 定义 __GPIO_H，供头文件防重包含或后续条件编译检查。 */
 
 /* 执行器引脚。泵和两个电磁阀在 GPIOA，两个三通阀在 GPIOC。 */
 #define circulation_pump_PIN                        GPIO_Pin_6  //循环泵引脚
@@ -16,7 +16,7 @@
 #define LIQUID_LEVEL_ADC_SAMPLE_TIME                 ADC_SampleTime_239Cycles5      // 液位传感器ADC采样时间
 
 // 初始化函数
-void GPIO_Init_ALL(void);
+void GPIO_Init_ALL(void); /* 声明接口，配置泵阀输出和液位输入，再初始化液位 ADC。 */
 
 /* 传入 0 将对应输出置低，非零将输出置高。状态标志反映最近写入的电平。 */
 void circulation_pump_Set(uint8_t state);                   // 控制循环泵
@@ -31,7 +31,7 @@ void Liquid_Level_ADC_Init(void);                           // 初始化液位传感器A
 void Liquid_Level_Update(void);                             // 100ms采样更新缓存
 uint16_t Liquid_Level_Read(void);                           // 返回 0~4095 的最近采样值，调用时不启动转换
 
-#endif
+#endif /* 结束这一组条件编译，后面的代码恢复外层编译条件。 */
 
 
 
